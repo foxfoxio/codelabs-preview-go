@@ -15,7 +15,7 @@ func main() {
 		Handler: router,
 	}
 
-	fmt.Printf("start serving HTTP on %s", "localhost:3000")
+	fmt.Printf("start serving HTTP on %s\n", "localhost:3000")
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		fmt.Printf("http server error")
 	}

@@ -33,6 +33,10 @@ func AppendSessionId(ctx context.Context, sessionId string) context.Context {
 	return context.WithValue(ctx, constant.ContextSessionId, sessionId)
 }
 
+func AppendSession(ctx context.Context, session interface{}) context.Context {
+	return context.WithValue(ctx, constant.ContextSession, session)
+}
+
 func GetLogger(ctx context.Context) *logger.Logger {
 	if log, ok := ctx.Value(constant.ContextLogger).(*logger.Logger); ok && log != nil {
 		return log
@@ -63,4 +67,8 @@ func GetSessionId(ctx context.Context) string {
 	} else {
 		return ""
 	}
+}
+
+func GetSession(ctx context.Context) interface{} {
+	return ctx.Value(constant.ContextSession)
 }
