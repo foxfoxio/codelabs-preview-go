@@ -25,13 +25,13 @@ func New(rootRouter *mux.Router) {
 			"https://www.googleapis.com/auth/drive.readonly",
 			"openid",
 		},
-		RedirectURL: "http://localhost:3000/auth/oauth2/callback",
+		RedirectURL: os.Getenv("GOOGLE_REDIRECT_URL"),
 	}
 
 	store := sessions.NewCookieStore([]byte("t0p-secret"))
 	//store := sessions.NewCookieStore()
 
-	sessionUsecase := usecases.NewSession(store, "user-session")
+	sessionUsecase := usecases.NewSession(store, "__session")
 	viewerUsecase := usecases.NewViewer(config)
 	authUsecase := usecases.NewAuth(config)
 

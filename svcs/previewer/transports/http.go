@@ -27,6 +27,9 @@ func RegisterHttpRouter(router *mux.Router, authEp endpoints.AuthHttp, viewerEp 
 	authRouter := router.PathPrefix("/auth").Subrouter()
 	authRoutes.Build(authRouter)
 
+	pRouter := router.PathPrefix("/p").Subrouter()
+	rootRoutes.Build(pRouter)
+
 	rootRouter := router.PathPrefix("/").Subrouter()
 	rootRoutes.Build(rootRouter)
 

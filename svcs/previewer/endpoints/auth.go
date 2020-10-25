@@ -5,6 +5,7 @@ import (
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
 	"net/http"
+	"strings"
 )
 
 type AuthHttp interface {
@@ -41,16 +42,23 @@ func (ep *authHttpEndpoint) Oauth2Callback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	redirectingTo := session.RedirectUrl
+	if strings.Contains(redirectingTo, "callback") {
+		redirectingTo = "/"
+	}
+
 	session.UserId = authResponse.UserId
 	session.Name = authResponse.Name
 	session.Token = authResponse.Token
 	session.State = ""
+	session.RedirectUrl = ""
 	err = session.Save(r, w)
 	if err != nil {
 		fmt.Println("xxx save session failed", err)
 	}
 
-	w.Header().Set("Location", session.RedirectUrl)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Location", redirectingTo)
 	w.WriteHeader(http.StatusFound)
 	_, _ = fmt.Fprint(w, "redirecting...")
 }

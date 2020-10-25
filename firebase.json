@@ -1,0 +1,26 @@
+{
+  "hosting": {
+    "public": "./public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/auth/**",
+        "run": {
+          "serviceId": "foxfox-codelabs-preview",
+          "region": "asia-northeast1"
+        }
+      },
+      {
+        "source": "/p/**",
+        "run": {
+          "serviceId": "foxfox-codelabs-preview",
+          "region": "asia-northeast1"
+        }
+      }
+    ]
+  }
+}

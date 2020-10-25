@@ -43,6 +43,7 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("save session failed", e.Error())
 		}
 
+		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Location", authResponse.RedirectUrl)
 		w.WriteHeader(http.StatusFound)
 		_, _ = fmt.Fprint(w, "redirecting...")
@@ -51,16 +52,24 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 
 	keys, ok := r.URL.Query()["file_id"]
 	if !ok || len(keys[0]) < 1 {
+		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, "redirecting...")
+		_, _ = fmt.Fprint(w, "bad request")
 		return
 	}
 
 	fileId := keys[0]
-	response, _ := ep.viewerUsecase.Parse(ctx, &requests.ViewerParseRequest{
+	response, err := ep.viewerUsecase.Parse(ctx, &requests.ViewerParseRequest{
 		FileId: fileId,
 	})
 	fmt.Println(response)
 
-	_, _ = fmt.Fprint(w, response.Response)
+	w.Header().Set("Cache-Control", "no-store")
+	if err != nil {
+		fmt.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, err.Error())
+	} else {
+		_, _ = fmt.Fprint(w, response.Response)
+	}
 }
