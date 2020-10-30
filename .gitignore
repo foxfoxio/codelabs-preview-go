@@ -31,3 +31,4 @@ dist
 .local_storage
 
 config.yml
+.firebase/
