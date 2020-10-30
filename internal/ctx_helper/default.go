@@ -37,7 +37,17 @@ func AppendSession(ctx context.Context, session interface{}) context.Context {
 	return context.WithValue(ctx, constant.ContextSession, session)
 }
 
-func GetLogger(ctx context.Context) *logger.Logger {
+func GetLogger(ctx context.Context) (l *logger.Logger) {
+	defer func() {
+		if l.RequestID != "" {
+			return
+		}
+
+		if r := GetRequestId(ctx); r != "" {
+			l = l.WithRequestID(r)
+		}
+	}()
+
 	if log, ok := ctx.Value(constant.ContextLogger).(*logger.Logger); ok && log != nil {
 		return log
 	} else {
