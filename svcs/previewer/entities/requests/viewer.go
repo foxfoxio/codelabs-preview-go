@@ -7,3 +7,11 @@ type ViewerParseRequest struct {
 type ViewerParseResponse struct {
 	Response string
 }
+
+type ViewerDraftRequest struct {
+	Title string
+}
+
+type ViewerDraftResponse struct {
+	FileId string
+}

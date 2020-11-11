@@ -8,9 +8,12 @@ require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/rs/xid v1.2.1
 	github.com/sirupsen/logrus v1.7.0
+	github.com/stretchr/testify v1.4.0
+	golang.org/x/net v0.0.0-20201016165138-7b1cca2348c0
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	google.golang.org/api v0.30.0
 )
 
-replace github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d => github.com/foxfoxio/tools/claat v0.0.0-20201030163433-0f71522d5224
+replace github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d => github.com/foxfoxio/tools/claat v0.0.0-20201105102054-8477c5e87168
 
 replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1
