@@ -1,6 +1,9 @@
 package requests
 
-import "github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
+import (
+	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
+	"time"
+)
 
 type AuthProcessSessionRequest struct {
 	UserSession *entities.UserSession
@@ -22,4 +25,14 @@ type AuthProcessOauth2CallbackResponse struct {
 	Name   string
 	UserId string
 	Token  string
+}
+
+type AuthProcessFirebaseAuthorizationRequest struct {
+	AuthorizationToken string
+}
+
+type AuthProcessFirebaseAuthorizationResponse struct {
+	UserId    string
+	Email     string
+	ExpiresAt time.Time
 }

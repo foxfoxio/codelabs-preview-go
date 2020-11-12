@@ -16,19 +16,30 @@ func createAuthRoutes(authEp endpoints.AuthHttp) routes {
 
 func createRootRoutes(viewerEp endpoints.Viewer) routes {
 	return routes{
+		r("/draft", viewerEp.Draft, "POST"),
 		r("/", viewerEp.Preview, "GET"),
+	}
+}
+
+func createDraftRoutes(viewerEp endpoints.Viewer) routes {
+	return routes{
+		r("/", viewerEp.Draft, "POST"),
 	}
 }
 
 func RegisterHttpRouter(router *mux.Router, authEp endpoints.AuthHttp, viewerEp endpoints.Viewer) {
 	authRoutes := createAuthRoutes(authEp)
 	rootRoutes := createRootRoutes(viewerEp)
+	draftRoutes := createDraftRoutes(viewerEp)
 
 	authRouter := router.PathPrefix("/auth").Subrouter()
 	authRoutes.Build(authRouter)
 
 	pRouter := router.PathPrefix("/p").Subrouter()
 	rootRoutes.Build(pRouter)
+
+	draftRouter := router.PathPrefix("/draft").Subrouter()
+	draftRoutes.Build(draftRouter)
 
 	rootRouter := router.PathPrefix("/").Subrouter()
 	rootRoutes.Build(rootRouter)

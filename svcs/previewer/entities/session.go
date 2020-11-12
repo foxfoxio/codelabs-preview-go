@@ -18,6 +18,7 @@ type UserSession struct {
 	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	UserId      string    `json:"userId"`
+	Email       string    `json:"email"`
 	State       string    `json:"state"`
 	Token       string    `json:"token"`
 	CreatedAt   time.Time `json:"createdAt"`

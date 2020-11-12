@@ -12,6 +12,7 @@ import (
 type Auth interface {
 	ProcessSession(ctx context.Context, request *requests.AuthProcessSessionRequest) (*requests.AuthProcessSessionResponse, error)
 	ProcessOauth2Callback(ctx context.Context, request *requests.AuthProcessOauth2CallbackRequest) (*requests.AuthProcessOauth2CallbackResponse, error)
+	ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error)
 }
 
 func NewAuth(config *oauth2.Config) Auth {
@@ -80,5 +81,19 @@ func (uc *authUsecase) ProcessOauth2Callback(ctx context.Context, request *reque
 		Name:   name,
 		UserId: userId,
 		Token:  encodedToken,
+	}, nil
+}
+
+func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error) {
+	// TODO: verify token with firebase
+	claim, err := tokenUtils.ExtractJwtClaims(request.AuthorizationToken)
+
+	if err != nil {
+		return nil, err
+	}
+	return &requests.AuthProcessFirebaseAuthorizationResponse{
+		UserId:    claim.UserId,
+		Email:     claim.Email,
+		ExpiresAt: claim.ExpiresAt(),
 	}, nil
 }

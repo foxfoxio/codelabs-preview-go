@@ -1,9 +1,10 @@
 package constant
 
 const (
-	ContextRequestId = "request-id"
-	ContextLogger    = "logger"
-	ContextUserId    = "user-id"
-	ContextSessionId = "session-id"
-	ContextSession   = "session"
+	ContextRequestId     = "request-id"
+	ContextLogger        = "logger"
+	ContextUserId        = "user-id"
+	ContextSessionId     = "session-id"
+	ContextSession       = "session"
+	ContextAuthorization = "authorization"
 )
