@@ -31,6 +31,7 @@ func New(rootRouter *mux.Router) {
 
 	templateId := os.Getenv("CP_TEMPLATE_ID")
 	driveRootId := os.Getenv("CP_DRIVE_ROOT_ID")
+	adminEmail := os.Getenv("CP_ADMIN_EMAIL")
 
 	if templateId == "" {
 		templateId = "1oZh5YrbA54pX9WfolES9MD5NvPdR_haEVeI3D56rHzM"
@@ -44,7 +45,7 @@ func New(rootRouter *mux.Router) {
 	driveClient := gdrive.NewClient()
 
 	sessionUsecase := usecases.NewSession(store, "__session")
-	viewerUsecase := usecases.NewViewer(driveClient, templateId, driveRootId)
+	viewerUsecase := usecases.NewViewer(driveClient, templateId, driveRootId, adminEmail)
 	authUsecase := usecases.NewAuth(config)
 
 	authEp := endpoints.NewAuth(sessionUsecase, authUsecase)

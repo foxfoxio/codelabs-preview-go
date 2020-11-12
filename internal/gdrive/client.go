@@ -76,6 +76,23 @@ func grantWritePermission(ctx context.Context, service *drive.Service, fileId st
 	return perm, nil
 }
 
+func grantOwnerPermission(ctx context.Context, service *drive.Service, fileId string, userEmail string) (*drive.Permission, error) {
+	perm := &drive.Permission{
+		EmailAddress: userEmail,
+		Role:         "owner",
+		Type:         "user",
+	}
+
+	perm, err := service.Permissions.Create(fileId, perm).Context(ctx).TransferOwnership(true).Do()
+
+	if err != nil {
+		log.Println("Could not share file: " + err.Error())
+		return nil, err
+	}
+
+	return perm, nil
+}
+
 func getClient() *drive.Service {
 	ctx := context.Background()
 	service, err := drive.NewService(ctx)
