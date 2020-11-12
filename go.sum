@@ -47,14 +47,8 @@ github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymF
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
-github.com/foxfoxio/tools/claat v0.0.0-20201030161033-78cfa2672d23 h1:gQa++Ej0ZKMfS7cdsO5AYVpCUOR7wQ0i5G3PuCS6Vv0=
-github.com/foxfoxio/tools/claat v0.0.0-20201030161033-78cfa2672d23/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
-github.com/foxfoxio/tools/claat v0.0.0-20201030163433-0f71522d5224 h1:8a6s6o7lvJXFQkvM+SG4ORQ4zj9j4crdM5Bo8/PLQD8=
-github.com/foxfoxio/tools/claat v0.0.0-20201030163433-0f71522d5224/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
-github.com/foxfoxio/tools/claat v0.0.0-20201103165912-9862362801d9 h1:kFIPMWafNQaALIHPFn12RReNV+hXZo+mf//NZwoAxyg=
-github.com/foxfoxio/tools/claat v0.0.0-20201103165912-9862362801d9/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
-github.com/foxfoxio/tools/claat v0.0.0-20201105102054-8477c5e87168 h1:DDSZWWhw920ceYyBnNTqFwd+AVuhJQE2vIrIvXH9NNc=
-github.com/foxfoxio/tools/claat v0.0.0-20201105102054-8477c5e87168/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
+github.com/foxfoxio/tools/claat v0.0.0-20201112040122-9811fe3bfc95 h1:zylOsJU6UXa+ITB1YNcvY/BlWKZmPTwUpTGHHyYtibE=
+github.com/foxfoxio/tools/claat v0.0.0-20201112040122-9811fe3bfc95/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=

@@ -7,6 +7,8 @@ import (
 )
 
 func TestGDoc(t *testing.T) {
+	t.Skip("ignore real test")
+
 	svc := getService()
 
 	ctx := context.Background()

@@ -88,11 +88,21 @@ func getClient() *drive.Service {
 }
 
 func getFile(ctx context.Context, service *drive.Service, fileId string) (io.ReadCloser, error) {
-
 	response, err := service.Files.Get(fileId).Context(ctx).Download()
 
 	if err != nil {
 		log.Println("Could not get file: " + err.Error())
+		return nil, err
+	}
+
+	return response.Body, nil
+}
+
+func exportFile(ctx context.Context, service *drive.Service, fileId string, mimeType string) (io.ReadCloser, error) {
+	response, err := service.Files.Export(fileId, mimeType).Context(ctx).Download()
+
+	if err != nil {
+		log.Println("Could not export file: " + err.Error())
 		return nil, err
 	}
 

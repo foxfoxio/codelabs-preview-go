@@ -35,43 +35,20 @@ type viewerEndpoint struct {
 }
 
 func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
-	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-	authResponse, err := ep.authUsecase.ProcessSession(ctx, &requests.AuthProcessSessionRequest{UserSession: session})
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, "500 - OH Nooooooooo!\n%s", err.Error())
-		return
-	}
-
-	if !authResponse.IsValid {
-		session.State = authResponse.State
-		session.RedirectUrl = r.RequestURI
-		e := session.Save(r, w)
-		if e != nil {
-			fmt.Println("save session failed", e.Error())
-		}
-
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("Location", authResponse.RedirectUrl)
-		w.WriteHeader(http.StatusFound)
-		_, _ = fmt.Fprint(w, "redirecting...")
-		return
-	}
-
-	keys, ok := r.URL.Query()["file_id"]
-	if !ok || len(keys[0]) < 1 {
+	fileId := r.URL.Query().Get("file_id")
+	if fileId == "" {
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = fmt.Fprint(w, "bad request")
 		return
 	}
 
-	fileId := keys[0]
 	response, err := ep.viewerUsecase.Parse(ctx, &requests.ViewerParseRequest{
 		FileId: fileId,
 	})
-	fmt.Println(response)
 
 	w.Header().Set("Cache-Control", "no-store")
 	if err != nil {

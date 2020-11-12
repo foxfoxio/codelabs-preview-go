@@ -24,6 +24,7 @@ type Client interface {
 	CopyFile(ctx context.Context, sourceFileId string, destinationName string, parentId string) (*DriveFile, error)
 	GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GetFile(ctx context.Context, fileId string) (*DriveFileReader, error)
+	ExportFile(ctx context.Context, fileId string, mimeType string) (*DriveFileReader, error)
 }
 
 func NewClient() Client {
@@ -78,6 +79,18 @@ func (c *client) GrantWritePermission(ctx context.Context, fileId string, userEm
 
 func (c *client) GetFile(ctx context.Context, fileId string) (*DriveFileReader, error) {
 	reader, err := getFile(ctx, c.service, fileId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &DriveFileReader{
+		Reader: reader,
+	}, nil
+}
+
+func (c *client) ExportFile(ctx context.Context, fileId string, mimeType string) (*DriveFileReader, error) {
+	reader, err := exportFile(ctx, c.service, fileId, mimeType)
 
 	if err != nil {
 		return nil, err
