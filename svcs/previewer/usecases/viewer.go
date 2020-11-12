@@ -22,11 +22,12 @@ type Viewer interface {
 	Draft(ctx context.Context, request *requests.ViewerDraftRequest) (*requests.ViewerDraftResponse, error)
 }
 
-func NewViewer(driveClient gdrive.Client, templateFileId string, driveRootId string) Viewer {
+func NewViewer(driveClient gdrive.Client, templateFileId string, driveRootId string, adminEmail string) Viewer {
 	return &viewerUsecase{
 		driveClient:    driveClient,
 		templateFileId: templateFileId,
 		driveRootId:    driveRootId,
+		adminEmail:     adminEmail,
 	}
 }
 
@@ -34,6 +35,7 @@ type viewerUsecase struct {
 	driveClient    gdrive.Client
 	templateFileId string
 	driveRootId    string
+	adminEmail     string
 }
 
 func (uc *viewerUsecase) Parse(ctx context.Context, request *requests.ViewerParseRequest) (*requests.ViewerParseResponse, error) {
@@ -121,7 +123,19 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 		log.WithError(err).Error("google drive, share file failed")
 		return nil, err
 	}
+
 	log.WithField("permission_id", s.Id).Info("file shared")
+
+	// set document owner
+	if uc.adminEmail != "" {
+		s, err := uc.driveClient.GrantOwnerPermission(ctx, f.Id, uc.adminEmail)
+
+		if err != nil {
+			log.WithError(err).Error("google drive, set file owner failed")
+		}
+
+		log.WithField("permission_id", s.Id).Info("owner set")
+	}
 
 	// return to user
 	return &requests.ViewerDraftResponse{FileId: f.Id}, nil
