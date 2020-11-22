@@ -20,8 +20,7 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args: ['run', 'deploy', '${_SERVICE_NAME}', '--image', 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging', '--region', '${_REGION}', '--platform', 'managed', '--allow-unauthenticated', '--port=3000']
-  images:
-  - gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging
+  images: ['gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging']
 
 substitutions:
   _BUCKET: 'codelabs-preview'
