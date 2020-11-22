@@ -1,3 +1,26 @@
 steps:
-    - name: golang:alpine
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    dir: '.'
+    args: [ 'gsutil', 'cp', 'gs://${_BUCKET}/.credentials/firebase-adminsdk.key.json', 'firebase-adminsdk.key.json' ]
+  - name: 'gcr.io/cloud-builders/go'
+    args: [ 'mod', 'edit', '-replace', 'github.com/googlecodelabs/tools/claat@v0.0.0-20200918190358-3cc6629c4d3d=github.com/foxfoxio/tools/claat@master' ]
+    env: [ 'PROJECT_ROOT=github.com/foxfoxio/codelabs-preview-go' ]
+  - name: 'gcr.io/cloud-builders/go'
+    args: [ 'build', '-o', './dist/playground-linux-x64', './cmd/playground/main.go' ]
+    env: [
+        'PROJECT_ROOT=github.com/foxfoxio/codelabs-preview-go',
+        'GOOS=linux',
+        'CGO_ENABLED=0',
+        'GOARCH=amd64'
+    ]
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '-f', './scripts/Dockerfile', '--tag=gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging', '.' ]
+    images: [ 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview' ]
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'push', 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging' ]
+    images: [ 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview' ]
 
+substitutions:
+  _BUCKET: 'codelabs-preview'
+
+timeout: '7200s'

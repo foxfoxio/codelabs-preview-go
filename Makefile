@@ -16,3 +16,6 @@ deploy-cloud-run:
 
 deploy-hosting:
 	firebase deploy --only hosting
+
+upgrade-claat:
+	@go mod edit -replace github.com/googlecodelabs/tools/claat@v0.0.0-20200918190358-3cc6629c4d3d=github.com/foxfoxio/tools/claat@master
