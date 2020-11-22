@@ -17,8 +17,16 @@ steps:
     args: [ 'build', '-f', './scripts/Dockerfile', '--tag=gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging', '.' ]
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging' ]
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: ['run', 'deploy', '${_SERVICE_NAME}', '--image', 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging', '--region', '${_REGION}', '--platform', 'managed', '--allow-unauthenticated', '--port=3000']
+
+  images:
+  - gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging
 
 substitutions:
   _BUCKET: 'codelabs-preview'
+  _SERVICE_NAME: 'foxfox-codelabs-preview'
+  _REGION: 'asia-northeast1'
 
 timeout: '7200s'
