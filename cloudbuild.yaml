@@ -15,10 +15,8 @@ steps:
     ]
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'build', '-f', './scripts/Dockerfile', '--tag=gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging', '.' ]
-    images: [ 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview' ]
   - name: 'gcr.io/cloud-builders/docker'
     args: [ 'push', 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview:staging' ]
-    images: [ 'gcr.io/$PROJECT_ID/foxfox-codelabs-preview' ]
 
 substitutions:
   _BUCKET: 'codelabs-preview'
