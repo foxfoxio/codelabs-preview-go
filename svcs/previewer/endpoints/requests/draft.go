@@ -7,3 +7,10 @@ type HttpDraftRequest struct {
 type HttpDraftResponse struct {
 	FileId string `json:"fileId"`
 }
+
+type HttpPublishResponse struct {
+	Revision int `json:"revision"`
+}
+
+type HttpMetaResponse struct {
+}

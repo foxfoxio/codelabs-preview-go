@@ -1,23 +1,29 @@
 package endpoints
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
 	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper"
-	"github.com/foxfoxio/codelabs-preview-go/internal/logger"
 	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
 	requests2 "github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
+	"github.com/gorilla/mux"
 	"net/http"
 	"time"
 )
 
 type Viewer interface {
 	Preview(w http.ResponseWriter, r *http.Request)
+	PreviewWithQuery(w http.ResponseWriter, r *http.Request)
 	Draft(w http.ResponseWriter, r *http.Request)
+	Publish(w http.ResponseWriter, r *http.Request)
+	View(w http.ResponseWriter, r *http.Request)
+	Meta(w http.ResponseWriter, r *http.Request)
 }
 
 func NewViewer(sessionUsecase usecases.Session, viewerUsecase usecases.Viewer, authUsecase usecases.Auth) Viewer {
@@ -34,7 +40,7 @@ type viewerEndpoint struct {
 	authUsecase    usecases.Auth
 }
 
-func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
+func (ep *viewerEndpoint) PreviewWithQuery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	ctx := ctx_helper.NewContextFromRequest(r)
 
@@ -60,17 +66,145 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
+
+	params := mux.Vars(r)
+	fileId := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	response, err := ep.viewerUsecase.Parse(ctx, &requests.ViewerParseRequest{
+		FileId: fileId,
+	})
+
+	w.Header().Set("Cache-Control", "no-store")
+	if err != nil {
+		fmt.Println(err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, err.Error())
+	} else {
+		_, _ = fmt.Fprint(w, response.Response)
+	}
+}
+
 func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	ctx := ctx_helper.NewContextFromRequest(r)
 	log := cp.Log(ctx, "ViewerEndpoint.Draft")
+	ctx, err := ep.authenticate(ctx, r)
 
+	var response *apiResponse
+	defer func() {
+		sendResponse(w, response)
+	}()
+
+	httpReq := &requests2.HttpDraftRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&httpReq); err != nil {
+		log.WithError(err).Error("invalid request")
+		response = newResponse(1, "invalid request", nil)
+		return
+	}
+
+	res, err := ep.viewerUsecase.Draft(ctx, &requests.ViewerDraftRequest{MetaData: httpReq.Data})
+
+	if err != nil {
+		log.WithError(err).Error("process draft failed")
+		response = newResponse(1, err.Error(), nil)
+		return
+	}
+
+	response = successResponse(&requests2.HttpDraftResponse{FileId: res.FileId})
+}
+
+func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
+	ctx, err := ep.authenticate(ctx, r)
+
+	var response *apiResponse
+	defer func() {
+		sendResponse(w, response)
+	}()
+
+	params := mux.Vars(r)
+	fileId := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	res, err := ep.viewerUsecase.Publish(ctx, &requests.ViewerPublishRequest{FileId: fileId})
+
+	if err != nil {
+		response = newResponse(1, err.Error(), nil)
+		return
+	}
+
+	response = successResponse(&requests2.HttpPublishResponse{Revision: res.Revision})
+}
+
+func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
+
+	params := mux.Vars(r)
+	fileId := ""
+	revision := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+
+	if rev, ok := params["revision"]; ok {
+		revision = rev
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	response, err := ep.viewerUsecase.View(ctx, &requests.ViewerViewRequest{
+		FileId:   fileId,
+		Revision: revision,
+	})
+
+	w.Header().Set("Cache-Control", "no-store")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, err.Error())
+	} else {
+		_, _ = fmt.Fprint(w, response.Response)
+	}
+}
+
+func (ep *viewerEndpoint) authenticate(ctx context.Context, r *http.Request) (context.Context, error) {
+	log := cp.Log(ctx, "ViewerEndpoint.authenticate")
 	authorizationToken := ""
 	if r := r.Header.Get("authorization"); r == "" {
 		log.Error("missing authorization")
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = fmt.Fprint(w, "unauthorized")
-		return
+		return ctx, errors.New("unauthorized")
+
 	} else {
 		authorizationToken = r
 	}
@@ -79,9 +213,7 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.WithError(err).Error("firebase authorization failed ")
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = fmt.Fprint(w, "unauthorized")
-		return
+		return ctx, errors.New("unauthorized")
 	}
 
 	userSession := &entities.UserSession{
@@ -97,34 +229,56 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 	ctx = ctx_helper.AppendSessionId(ctx, userSession.Id)
 	ctx = ctx_helper.AppendSession(ctx, userSession)
 
+	return ctx, nil
+}
+
+func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
+	log := cp.Log(ctx, "ViewerEndpoint.Meta")
+
+	ctx, err := ep.authenticate(ctx, r)
+
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, "unauthorized")
+		return
+	}
+
 	var response *apiResponse
 	defer func() {
 		sendResponse(w, response)
 	}()
 
-	httpReq := &requests2.HttpDraftRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&httpReq); err != nil {
-		logger.WithError(err).Error("invalid request")
-		response = newResponse(1, "invalid request", nil)
-		return
+	params := mux.Vars(r)
+	fileId := ""
+	revision := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
 	}
 
-	res, err := ep.viewerUsecase.Draft(ctx, &requests.ViewerDraftRequest{MetaData: httpReq.Data})
+	if rev, ok := params["revision"]; ok {
+		revision = rev
+	}
+
+	if fileId == "" {
+		log.Error("empty fileId")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+	_, err = ep.viewerUsecase.Meta(ctx, &requests.ViewerMetaRequest{
+		FileId:   fileId,
+		Revision: revision,
+	})
 
 	if err != nil {
+		log.WithError(err).Error("get meta failed")
 		response = newResponse(1, err.Error(), nil)
 		return
 	}
 
-	response = successResponse(&requests2.HttpDraftResponse{FileId: res.FileId})
-}
-
-func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
-
-}
-
-func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.ResponseWriter) {}
-
-func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.ResponseWriter) {
-
+	response = successResponse(&requests2.HttpMetaResponse{})
 }

@@ -10,6 +10,31 @@ type ViewerParseResponse struct {
 	Response string
 }
 
+type ViewerPublishRequest struct {
+	FileId string
+}
+
+type ViewerPublishResponse struct {
+	Revision int
+}
+
+type ViewerMetaRequest struct {
+	FileId   string
+	Revision string
+}
+
+type ViewerMetaResponse struct {
+}
+
+type ViewerViewRequest struct {
+	FileId   string
+	Revision string
+}
+
+type ViewerViewResponse struct {
+	Response string
+}
+
 type ViewerDraftRequest struct {
 	MetaData map[string]string
 }
