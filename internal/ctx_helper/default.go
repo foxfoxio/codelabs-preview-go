@@ -5,6 +5,7 @@ import (
 	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper/constant"
 	"github.com/foxfoxio/codelabs-preview-go/internal/logger"
 	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
+	"net/http"
 )
 
 func NewContext(ctx context.Context) context.Context {
@@ -15,6 +16,17 @@ func NewContext(ctx context.Context) context.Context {
 	var log = GetLogger(ctx).ApplyContext(ctx)
 	ctx = AppendLogger(ctx, log)
 	return ctx
+}
+
+func NewContextFromRequest(r *http.Request) context.Context {
+	requestId := utils.NewID()
+	if t := r.Header.Get("request-id"); t != "" {
+		requestId = t
+	}
+
+	ctx := AppendRequestId(context.Background(), requestId)
+	var log = GetLogger(ctx).ApplyContext(ctx)
+	return AppendLogger(ctx, log)
 }
 
 func AppendLogger(ctx context.Context, log *logger.Logger) context.Context {
@@ -35,6 +47,10 @@ func AppendSessionId(ctx context.Context, sessionId string) context.Context {
 
 func AppendSession(ctx context.Context, session interface{}) context.Context {
 	return context.WithValue(ctx, constant.ContextSession, session)
+}
+
+func AppendAuthorization(ctx context.Context, authorization string) context.Context {
+	return context.WithValue(ctx, constant.ContextAuthorization, authorization)
 }
 
 func GetLogger(ctx context.Context) (l *logger.Logger) {
@@ -73,6 +89,14 @@ func GetUserId(ctx context.Context) string {
 
 func GetSessionId(ctx context.Context) string {
 	if token, ok := ctx.Value(constant.ContextSessionId).(string); ok {
+		return token
+	} else {
+		return ""
+	}
+}
+
+func GetAuthorization(ctx context.Context) string {
+	if token, ok := ctx.Value(constant.ContextAuthorization).(string); ok {
 		return token
 	} else {
 		return ""

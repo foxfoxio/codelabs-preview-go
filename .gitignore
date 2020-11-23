@@ -32,3 +32,4 @@ dist
 
 config.yml
 .firebase/
+*.key.json
