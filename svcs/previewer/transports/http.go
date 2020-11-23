@@ -55,8 +55,8 @@ func RegisterHttpRouter(router *mux.Router, authEp endpoints.AuthHttp, viewerEp 
 	pRouter := router.PathPrefix("/p").Subrouter()
 	rootRoutes.Build(pRouter)
 
-	cRouter := router.PathPrefix("/c").Subrouter()
-	codeLabsRoutes.Build(cRouter)
+	vRouter := router.PathPrefix("/v").Subrouter()
+	codeLabsRoutes.Build(vRouter)
 
 	draftRouter := router.PathPrefix("/draft").Subrouter()
 	draftRoutes.Build(draftRouter)
