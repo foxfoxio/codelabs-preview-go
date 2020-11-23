@@ -1,6 +1,9 @@
 package requests
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
+)
 
 type ViewerParseRequest struct {
 	FileId string
@@ -20,15 +23,16 @@ type ViewerPublishResponse struct {
 
 type ViewerMetaRequest struct {
 	FileId   string
-	Revision string
+	Revision int
 }
 
 type ViewerMetaResponse struct {
+	Meta *entities.Meta
 }
 
 type ViewerViewRequest struct {
 	FileId   string
-	Revision string
+	Revision int
 }
 
 type ViewerViewResponse struct {

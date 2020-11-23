@@ -13,4 +13,5 @@ type HttpPublishResponse struct {
 }
 
 type HttpMetaResponse struct {
+	Meta map[string]interface{} `json:"meta"`
 }

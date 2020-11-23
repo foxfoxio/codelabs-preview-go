@@ -14,6 +14,7 @@ import (
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
 	"github.com/gorilla/mux"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -104,6 +105,12 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 	log := cp.Log(ctx, "ViewerEndpoint.Draft")
 	ctx, err := ep.authenticate(ctx, r)
 
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, "unauthorized")
+		return
+	}
+
 	var response *apiResponse
 	defer func() {
 		sendResponse(w, response)
@@ -131,6 +138,12 @@ func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	ctx := ctx_helper.NewContextFromRequest(r)
 	ctx, err := ep.authenticate(ctx, r)
+
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, "unauthorized")
+		return
+	}
 
 	var response *apiResponse
 	defer func() {
@@ -167,14 +180,22 @@ func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	fileId := ""
-	revision := ""
+	revision := 0
 
 	if id, ok := params["fileId"]; ok {
 		fileId = id
 	}
 
 	if rev, ok := params["revision"]; ok {
-		revision = rev
+		if rev == "latest" {
+			revision = 0
+		} else if r, e := strconv.ParseInt(rev, 10, 32); e != nil {
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprint(w, "bad request")
+		} else {
+			revision = int(r)
+		}
 	}
 
 	if fileId == "" {
@@ -191,6 +212,10 @@ func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-store")
 	if err != nil {
+		if err.Error() == "not found" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprint(w, err.Error())
 	} else {
@@ -252,14 +277,22 @@ func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
 
 	params := mux.Vars(r)
 	fileId := ""
-	revision := ""
+	revision := 0
 
 	if id, ok := params["fileId"]; ok {
 		fileId = id
 	}
 
 	if rev, ok := params["revision"]; ok {
-		revision = rev
+		if rev == "latest" {
+			revision = 0
+		} else if r, e := strconv.ParseInt(rev, 10, 32); e != nil {
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprint(w, "bad request")
+		} else {
+			revision = int(r)
+		}
 	}
 
 	if fileId == "" {
@@ -269,16 +302,36 @@ func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, "bad request")
 		return
 	}
-	_, err = ep.viewerUsecase.Meta(ctx, &requests.ViewerMetaRequest{
+	resp, err := ep.viewerUsecase.Meta(ctx, &requests.ViewerMetaRequest{
 		FileId:   fileId,
 		Revision: revision,
 	})
 
 	if err != nil {
-		log.WithError(err).Error("get meta failed")
+		if err.Error() == "not found" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		response = newResponse(1, err.Error(), nil)
 		return
 	}
 
-	response = successResponse(&requests2.HttpMetaResponse{})
+	meta, _ := structToMap(resp.Meta)
+
+	response = successResponse(&requests2.HttpMetaResponse{
+		Meta: meta,
+	})
+}
+
+func structToMap(data interface{}) (map[string]interface{}, error) {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	mapData := make(map[string]interface{})
+	err = json.Unmarshal(dataBytes, &mapData)
+	if err != nil {
+		return nil, err
+	}
+	return mapData, nil
 }

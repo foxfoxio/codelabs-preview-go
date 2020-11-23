@@ -210,7 +210,7 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 	} else {
 		latestMeta := &entities.Meta{}
 		mm := latestMetaBytes.Bytes()
-		if e := json.Unmarshal(latestMetaBytes.Bytes(), latestMeta); e != nil {
+		if e := json.Unmarshal(mm, latestMeta); e != nil {
 			log.WithError(err).WithField("data", string(mm)).Error("unmarshal latest meta file failed")
 		} else {
 			log.WithField("revision", latestMeta.Revision).Error("latest revision")
@@ -254,9 +254,60 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 }
 
 func (uc *viewerUsecase) View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error) {
-	panic("implement me")
+	log := cp.Log(ctx, "ViewerUsecase.View").WithField("fileId", request.FileId).WithField("revision", request.Revision)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	path := ""
+	if request.Revision <= 0 {
+		path = fmt.Sprintf("%s/%s/latest/index.html", uc.storagePath, request.FileId)
+	} else {
+		path = fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, request.Revision)
+	}
+
+	indexBytes, err := uc.gStorageClient.Read(ctx, path)
+
+	if err != nil {
+		log.WithError(err).WithField("path", path).Error("read index file failed")
+		if gstorage.IsNotExistError(err) {
+
+			return nil, errors.New("not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	return &requests.ViewerViewResponse{Response: indexBytes.String()}, nil
 }
 
 func (uc *viewerUsecase) Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error) {
-	panic("implement me")
+	log := cp.Log(ctx, "ViewerUsecase.Meta").WithField("fileId", request.FileId).WithField("revision", request.Revision)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	path := ""
+	if request.Revision <= 0 {
+		path = fmt.Sprintf("%s/%s/latest/meta.json", uc.storagePath, request.FileId)
+	} else {
+		path = fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, request.Revision)
+	}
+
+	metaBytes, err := uc.gStorageClient.Read(ctx, path)
+
+	if err != nil {
+		log.WithError(err).WithField("path", path).Error("read meta file failed")
+		if gstorage.IsNotExistError(err) {
+
+			return nil, errors.New("not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	meta := &entities.Meta{}
+	mm := metaBytes.Bytes()
+	if e := json.Unmarshal(mm, meta); e != nil {
+		log.WithError(err).WithField("data", string(mm)).Error("unmarshal meta file failed")
+		return nil, err
+	}
+
+	return &requests.ViewerMetaResponse{Meta: meta}, nil
 }
