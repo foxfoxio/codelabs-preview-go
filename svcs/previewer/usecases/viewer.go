@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
+	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
 	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
@@ -22,9 +23,10 @@ type Viewer interface {
 	Draft(ctx context.Context, request *requests.ViewerDraftRequest) (*requests.ViewerDraftResponse, error)
 }
 
-func NewViewer(driveClient gdrive.Client, templateFileId string, driveRootId string, adminEmail string) Viewer {
+func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, templateFileId string, driveRootId string, adminEmail string) Viewer {
 	return &viewerUsecase{
 		driveClient:    driveClient,
+		gDocClient:     gDocClient,
 		templateFileId: templateFileId,
 		driveRootId:    driveRootId,
 		adminEmail:     adminEmail,
@@ -33,6 +35,7 @@ func NewViewer(driveClient gdrive.Client, templateFileId string, driveRootId str
 
 type viewerUsecase struct {
 	driveClient    gdrive.Client
+	gDocClient     gdoc.Client
 	templateFileId string
 	driveRootId    string
 	adminEmail     string
@@ -108,13 +111,30 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 		WithField("user_id", session.UserId).
 		Info("session found")
 
+	if !request.Valid() {
+		log.Errorf("invalid request")
+		return nil, errors.New("bad request")
+	}
+
 	// create new document from template
-	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, request.Title, uc.driveRootId)
+	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, request.Title(), uc.driveRootId)
 	if err != nil {
 		log.WithError(err).Error("google drive, copy file failed")
 		return nil, err
 	}
 	log.WithField("file_id", f.Id).Info("file copied")
+
+	// override template
+	if len(request.MetaData) > 0 {
+		doc, err := uc.gDocClient.ReplaceTexts(ctx, f.Id, request.ReplaceTextParams())
+		if err != nil {
+			log.WithError(err).Error("google doc, replace template")
+			return nil, err
+		}
+		log.WithField("doc_id", doc.Id).Info("templated created")
+	} else {
+		log.Info("no metadata provided, skip replacing template")
+	}
 
 	// share document
 	s, err := uc.driveClient.GrantWritePermission(ctx, f.Id, session.Email)

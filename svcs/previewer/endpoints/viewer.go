@@ -109,7 +109,7 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := ep.viewerUsecase.Draft(ctx, &requests.ViewerDraftRequest{Title: httpReq.Data.Title})
+	res, err := ep.viewerUsecase.Draft(ctx, &requests.ViewerDraftRequest{MetaData: httpReq.Data})
 
 	if err != nil {
 		response = newResponse(1, err.Error(), nil)
@@ -117,4 +117,14 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response = successResponse(&requests2.HttpDraftResponse{FileId: res.FileId})
+}
+
+func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.ResponseWriter) {}
+
+func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.ResponseWriter) {
+
 }

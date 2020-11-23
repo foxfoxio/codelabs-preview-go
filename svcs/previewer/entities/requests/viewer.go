@@ -1,5 +1,7 @@
 package requests
 
+import "fmt"
+
 type ViewerParseRequest struct {
 	FileId string
 }
@@ -9,8 +11,44 @@ type ViewerParseResponse struct {
 }
 
 type ViewerDraftRequest struct {
-	Title string
+	MetaData map[string]string
 }
+
+func (e *ViewerDraftRequest) Title() string {
+	if t, ok := e.MetaData[ViewerDraftKeyTitle]; ok {
+		return t
+	}
+
+	return ""
+}
+
+func (e *ViewerDraftRequest) Valid() bool {
+	return e.Title() != ""
+}
+
+func (e *ViewerDraftRequest) ReplaceTextParams() map[string]string {
+	params := make(map[string]string)
+
+	for k, v := range e.MetaData {
+		newK := fmt.Sprintf(`${%s}`, k)
+		params[newK] = v
+	}
+
+	return params
+}
+
+const (
+	ViewerDraftKeyTitle            string = "title"
+	ViewerDraftKeySummary          string = "summary"
+	ViewerDraftKeySlug             string = "slug"
+	ViewerDraftKeyType             string = "type"
+	ViewerDraftKeyTags             string = "tags"
+	ViewerDraftKeyStatus           string = "status"
+	ViewerDraftKeyFeedbackLink     string = "feedbackLink"
+	ViewerDraftKeyAuthor           string = "author"
+	ViewerDraftKeyAuthorLDAP       string = "authorLDAP"
+	ViewerDraftKeyAnalyticsAccount string = "analyticsAccount"
+)
 
 type ViewerDraftResponse struct {
 	FileId string

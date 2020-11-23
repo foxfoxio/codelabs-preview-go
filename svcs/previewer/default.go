@@ -1,6 +1,7 @@
 package previewer
 
 import (
+	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/transports"
@@ -34,7 +35,7 @@ func New(rootRouter *mux.Router) {
 	adminEmail := os.Getenv("CP_ADMIN_EMAIL")
 
 	if templateId == "" {
-		templateId = "1oZh5YrbA54pX9WfolES9MD5NvPdR_haEVeI3D56rHzM"
+		templateId = "1X3kriKmznxdBrJ1U4NLVtM_kLHRJBXEjn92iZI9XcW4"
 	}
 
 	if driveRootId == "" {
@@ -43,9 +44,10 @@ func New(rootRouter *mux.Router) {
 
 	store := sessions.NewCookieStore([]byte("t0p-secret"))
 	driveClient := gdrive.NewClient()
+	gdocClient := gdoc.NewClient()
 
 	sessionUsecase := usecases.NewSession(store, "__session")
-	viewerUsecase := usecases.NewViewer(driveClient, templateId, driveRootId, adminEmail)
+	viewerUsecase := usecases.NewViewer(driveClient, gdocClient, templateId, driveRootId, adminEmail)
 	authUsecase := usecases.NewAuth(config)
 
 	authEp := endpoints.NewAuth(sessionUsecase, authUsecase)

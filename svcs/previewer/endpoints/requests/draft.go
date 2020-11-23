@@ -1,9 +1,7 @@
 package requests
 
 type HttpDraftRequest struct {
-	Data struct {
-		Title string `json:"title"`
-	} `json:"data"`
+	Data map[string]string `json:"data"`
 }
 
 type HttpDraftResponse struct {
