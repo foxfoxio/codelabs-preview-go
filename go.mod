@@ -3,6 +3,7 @@ module github.com/foxfoxio/codelabs-preview-go
 go 1.13
 
 require (
+	cloud.google.com/go/storage v1.10.0
 	github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/sessions v1.2.1

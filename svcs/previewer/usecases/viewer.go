@@ -3,10 +3,16 @@ package usecases
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
+	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
+	"github.com/foxfoxio/codelabs-preview-go/internal/gstorage"
 	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
+	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
+	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	"github.com/googlecodelabs/tools/claat/fetch"
 	"github.com/googlecodelabs/tools/claat/parser"
@@ -20,51 +26,73 @@ import (
 type Viewer interface {
 	Parse(ctx context.Context, request *requests.ViewerParseRequest) (*requests.ViewerParseResponse, error)
 	Draft(ctx context.Context, request *requests.ViewerDraftRequest) (*requests.ViewerDraftResponse, error)
+	Publish(ctx context.Context, request *requests.ViewerPublishRequest) (*requests.ViewerPublishResponse, error)
+	View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error)
+	Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error)
 }
 
-func NewViewer(driveClient gdrive.Client, templateFileId string, driveRootId string, adminEmail string) Viewer {
+func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string) Viewer {
 	return &viewerUsecase{
 		driveClient:    driveClient,
+		gDocClient:     gDocClient,
+		gStorageClient: gStorageClient,
 		templateFileId: templateFileId,
 		driveRootId:    driveRootId,
 		adminEmail:     adminEmail,
+		storagePath:    storagePath,
 	}
 }
 
 type viewerUsecase struct {
 	driveClient    gdrive.Client
+	gDocClient     gdoc.Client
+	gStorageClient gstorage.Client
 	templateFileId string
 	driveRootId    string
 	adminEmail     string
+	storagePath    string
 }
 
-func (uc *viewerUsecase) Parse(ctx context.Context, request *requests.ViewerParseRequest) (*requests.ViewerParseResponse, error) {
-	log := cp.Log(ctx, "ViewerUsecase.Parse").WithField("file_id", request.FileId)
-	defer stopwatch.StartWithLogger(log).Stop()
-
-	s, err := uc.driveClient.ExportFile(ctx, request.FileId, "text/html")
+func (uc *viewerUsecase) parseCodeLabs(ctx context.Context, fileId string) ([]byte, *entities.Meta, error) {
+	log := cp.Log(ctx, "ViewerUsecase.parseCodeLabs").WithField("fileId", fileId)
+	s, err := uc.driveClient.ExportFile(ctx, fileId, "text/html")
 
 	if err != nil {
 		log.WithError(err).Error("google drive, get file failed")
-		return nil, err
+		return nil, nil, err
 	}
 
 	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{}, parser.Blackfriday)
 	codelabs, err := fetcher.SlurpCodelab(s.Reader)
 
 	if err != nil {
-		return nil, errors.New("bad bad: " + err.Error())
+		return nil, nil, errors.New("bad bad: " + err.Error())
 	}
 
 	var buffer bytes.Buffer
-	response := ""
-
 	err = renderOutput(&buffer, codelabs.Codelab)
 
+	meta := &entities.Meta{
+		FileId:       fileId,
+		Revision:     1, // default revision
+		ExportedDate: time.Now(),
+		Meta:         &codelabs.Meta,
+	}
+
+	return buffer.Bytes(), meta, err
+}
+
+func (uc *viewerUsecase) Parse(ctx context.Context, request *requests.ViewerParseRequest) (*requests.ViewerParseResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.Parse").WithField("fileId", request.FileId)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	res, _, err := uc.parseCodeLabs(ctx, request.FileId)
+
+	response := ""
 	if err != nil {
 		response = err.Error()
 	} else {
-		response = string(buffer.Bytes())
+		response = string(res)
 	}
 
 	return &requests.ViewerParseResponse{
@@ -83,7 +111,7 @@ func renderOutput(w io.Writer, codelabs *types.Codelab) error {
 		Env:      "web",
 		Prefix:   "https://storage.googleapis.com",
 		Format:   "html",
-		GlobalGA: "ga-001002003",
+		GlobalGA: codelabs.GA,
 		Updated:  time.Now().Format(time.RFC3339),
 		Meta:     &codelabs.Meta,
 		Steps:    codelabs.Steps,
@@ -108,13 +136,30 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 		WithField("user_id", session.UserId).
 		Info("session found")
 
+	if !request.Valid() {
+		log.Errorf("invalid request")
+		return nil, errors.New("bad request")
+	}
+
 	// create new document from template
-	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, request.Title, uc.driveRootId)
+	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, request.Title(), uc.driveRootId)
 	if err != nil {
 		log.WithError(err).Error("google drive, copy file failed")
 		return nil, err
 	}
 	log.WithField("file_id", f.Id).Info("file copied")
+
+	// override template
+	if len(request.MetaData) > 0 {
+		doc, err := uc.gDocClient.ReplaceTexts(ctx, f.Id, request.ReplaceTextParams())
+		if err != nil {
+			log.WithError(err).Error("google doc, replace template")
+			return nil, err
+		}
+		log.WithField("doc_id", doc.Id).Info("templated created")
+	} else {
+		log.Info("no metadata provided, skip replacing template")
+	}
 
 	// share document
 	s, err := uc.driveClient.GrantWritePermission(ctx, f.Id, session.Email)
@@ -139,4 +184,130 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 
 	// return to user
 	return &requests.ViewerDraftResponse{FileId: f.Id}, nil
+}
+
+func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPublishRequest) (*requests.ViewerPublishResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.Publish").WithField("fileId", request.FileId)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	// parse codelabs
+	resBytes, meta, err := uc.parseCodeLabs(ctx, request.FileId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// get latest revisions
+	latestMetaPath := fmt.Sprintf("%s/%s/latest/meta.json", uc.storagePath, request.FileId)
+	latestIndexPath := fmt.Sprintf("%s/%s/latest/index.html", uc.storagePath, request.FileId)
+
+	latestMetaBytes, err := uc.gStorageClient.Read(ctx, latestMetaPath)
+	if err != nil {
+		if !gstorage.IsNotExistError(err) {
+			log.WithError(err).WithField("path", latestMetaPath).Error("read latest meta file failed")
+			return nil, err
+		}
+	} else {
+		latestMeta := &entities.Meta{}
+		mm := latestMetaBytes.Bytes()
+		if e := json.Unmarshal(mm, latestMeta); e != nil {
+			log.WithError(err).WithField("data", string(mm)).Error("unmarshal latest meta file failed")
+		} else {
+			log.WithField("revision", latestMeta.Revision).Error("latest revision")
+			meta.Revision = latestMeta.Revision + 1
+		}
+	}
+
+	revMetaPath := fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, meta.Revision)
+	revIndexPath := fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, meta.Revision)
+
+	// save new revision to bucket
+	size, err := uc.gStorageClient.Write(ctx, latestIndexPath, bytes.NewBuffer(resBytes))
+	if err != nil {
+		log.WithError(err).WithField("path", latestIndexPath).Error("write index file failed")
+		return nil, err
+	}
+	log.WithField("size", size).WithField("path", latestIndexPath).Info("latest index file created")
+	size, err = uc.gStorageClient.Write(ctx, revIndexPath, bytes.NewBuffer(resBytes))
+	if err != nil {
+		log.WithError(err).WithField("path", revIndexPath).Error("write revision index file failed")
+		return nil, err
+	}
+	log.WithField("size", size).WithField("path", revIndexPath).Info("revision index file created")
+	size, err = uc.gStorageClient.Write(ctx, latestMetaPath, bytes.NewBufferString(utils.StringifyIndent(meta)))
+	if err != nil {
+		log.WithError(err).WithField("path", latestMetaPath).Error("write latest meta file failed")
+		return nil, err
+	}
+	log.WithField("size", size).WithField("path", latestMetaPath).Info("latest meta file created")
+	size, err = uc.gStorageClient.Write(ctx, revMetaPath, bytes.NewBufferString(utils.StringifyIndent(meta)))
+	if err != nil {
+		log.WithError(err).WithField("path", revMetaPath).Error("write revision meta file failed")
+		return nil, err
+	}
+	log.WithField("size", size).WithField("path", revMetaPath).Info("revision meta file created")
+
+	return &requests.ViewerPublishResponse{
+		Revision: meta.Revision,
+	}, nil
+
+}
+
+func (uc *viewerUsecase) View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.View").WithField("fileId", request.FileId).WithField("revision", request.Revision)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	path := ""
+	if request.Revision <= 0 {
+		path = fmt.Sprintf("%s/%s/latest/index.html", uc.storagePath, request.FileId)
+	} else {
+		path = fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, request.Revision)
+	}
+
+	indexBytes, err := uc.gStorageClient.Read(ctx, path)
+
+	if err != nil {
+		log.WithError(err).WithField("path", path).Error("read index file failed")
+		if gstorage.IsNotExistError(err) {
+
+			return nil, errors.New("not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	return &requests.ViewerViewResponse{Response: indexBytes.String()}, nil
+}
+
+func (uc *viewerUsecase) Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.Meta").WithField("fileId", request.FileId).WithField("revision", request.Revision)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	path := ""
+	if request.Revision <= 0 {
+		path = fmt.Sprintf("%s/%s/latest/meta.json", uc.storagePath, request.FileId)
+	} else {
+		path = fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, request.Revision)
+	}
+
+	metaBytes, err := uc.gStorageClient.Read(ctx, path)
+
+	if err != nil {
+		log.WithError(err).WithField("path", path).Error("read meta file failed")
+		if gstorage.IsNotExistError(err) {
+
+			return nil, errors.New("not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	meta := &entities.Meta{}
+	mm := metaBytes.Bytes()
+	if e := json.Unmarshal(mm, meta); e != nil {
+		log.WithError(err).WithField("data", string(mm)).Error("unmarshal meta file failed")
+		return nil, err
+	}
+
+	return &requests.ViewerMetaResponse{Meta: meta}, nil
 }

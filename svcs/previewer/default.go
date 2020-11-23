@@ -1,7 +1,9 @@
 package previewer
 
 import (
+	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
+	"github.com/foxfoxio/codelabs-preview-go/internal/gstorage"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/transports"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
@@ -32,20 +34,32 @@ func New(rootRouter *mux.Router) {
 	templateId := os.Getenv("CP_TEMPLATE_ID")
 	driveRootId := os.Getenv("CP_DRIVE_ROOT_ID")
 	adminEmail := os.Getenv("CP_ADMIN_EMAIL")
+	bucketName := os.Getenv("CP_BUCKET_NAME")
+	storagePath := os.Getenv("CP_STORAGE_PATH")
 
 	if templateId == "" {
-		templateId = "1oZh5YrbA54pX9WfolES9MD5NvPdR_haEVeI3D56rHzM"
+		templateId = "1X3kriKmznxdBrJ1U4NLVtM_kLHRJBXEjn92iZI9XcW4"
 	}
 
 	if driveRootId == "" {
 		driveRootId = "1uH1lq__vo-PTusArFsOduKfHk6ZhW1gX"
 	}
 
+	if bucketName == "" {
+		bucketName = "codelabs-preview"
+	}
+
+	if storagePath == "" {
+		storagePath = "files-dev"
+	}
+
 	store := sessions.NewCookieStore([]byte("t0p-secret"))
 	driveClient := gdrive.NewClient()
+	gdocClient := gdoc.NewClient()
+	gStorageClient := gstorage.NewClient(bucketName)
 
 	sessionUsecase := usecases.NewSession(store, "__session")
-	viewerUsecase := usecases.NewViewer(driveClient, templateId, driveRootId, adminEmail)
+	viewerUsecase := usecases.NewViewer(driveClient, gdocClient, gStorageClient, templateId, driveRootId, adminEmail, storagePath)
 	authUsecase := usecases.NewAuth(config)
 
 	authEp := endpoints.NewAuth(sessionUsecase, authUsecase)

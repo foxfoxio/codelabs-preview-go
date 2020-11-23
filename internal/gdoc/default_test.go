@@ -9,16 +9,19 @@ import (
 func TestGDoc(t *testing.T) {
 	t.Skip("ignore real test")
 
-	svc := getService()
+	svc := getClient()
 
 	ctx := context.Background()
 
-	req := svc.Documents.Get("1KdO9GjdiN8aFLdNJpHgJDGp2E4fxtErR5LiLD6GtMTg")
-	outDoc, err := req.Context(ctx).Do()
+	params := map[string]string{
+		"status": "draft",
+	}
+
+	res, err := replaceTexts(ctx, svc, "1I05wp5zv0fao-rpj7WoFmCl2Pd1xEINbKdnX0s9-UZE", params)
 
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(outDoc)
+	fmt.Println(res.DocumentId)
 }

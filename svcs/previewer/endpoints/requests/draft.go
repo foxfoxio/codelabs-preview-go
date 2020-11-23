@@ -1,11 +1,17 @@
 package requests
 
 type HttpDraftRequest struct {
-	Data struct {
-		Title string `json:"title"`
-	} `json:"data"`
+	Data map[string]string `json:"data"`
 }
 
 type HttpDraftResponse struct {
 	FileId string `json:"fileId"`
+}
+
+type HttpPublishResponse struct {
+	Revision int `json:"revision"`
+}
+
+type HttpMetaResponse struct {
+	Meta map[string]interface{} `json:"meta"`
 }
