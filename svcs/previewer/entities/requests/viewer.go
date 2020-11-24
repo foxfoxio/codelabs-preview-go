@@ -19,6 +19,7 @@ type ViewerPublishRequest struct {
 
 type ViewerPublishResponse struct {
 	Revision int
+	Meta     *entities.Meta
 }
 
 type ViewerMetaRequest struct {

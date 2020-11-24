@@ -249,6 +249,7 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 
 	return &requests.ViewerPublishResponse{
 		Revision: meta.Revision,
+		Meta:     meta,
 	}, nil
 
 }

@@ -170,8 +170,11 @@ func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
 		response = newResponse(1, err.Error(), nil)
 		return
 	}
-
-	response = successResponse(&requests2.HttpPublishResponse{Revision: res.Revision})
+	meta, _ := structToMap(res.Meta)
+	response = successResponse(&requests2.HttpPublishResponse{
+		Revision: res.Revision,
+		Meta:     meta,
+	})
 }
 
 func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {

@@ -9,7 +9,8 @@ type HttpDraftResponse struct {
 }
 
 type HttpPublishResponse struct {
-	Revision int `json:"revision"`
+	Revision int                    `json:"revision"`
+	Meta     map[string]interface{} `json:"meta"`
 }
 
 type HttpMetaResponse struct {
