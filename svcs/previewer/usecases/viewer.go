@@ -76,7 +76,10 @@ func (uc *viewerUsecase) parseCodeLabs(ctx context.Context, fileId string) ([]by
 		FileId:       fileId,
 		Revision:     1, // default revision
 		ExportedDate: time.Now(),
-		Meta:         &codelabs.Meta,
+		Meta: &entities.MetaEx{
+			Meta:          &codelabs.Meta,
+			TotalChapters: len(codelabs.Steps),
+		},
 	}
 
 	return buffer.Bytes(), meta, err
