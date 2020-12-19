@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Viewer interface {
@@ -145,6 +146,11 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 	return &requests.ViewerDraftResponse{FileId: f.Id}, nil
 }
 
+type fileUpload struct {
+	path    string
+	content []byte
+}
+
 func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPublishRequest) (*requests.ViewerPublishResponse, error) {
 	log := cp.Log(ctx, "ViewerUsecase.Publish").WithField("fileId", request.FileId)
 	defer stopwatch.StartWithLogger(log).Stop()
@@ -180,57 +186,42 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 	revMetaPath := fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, result.Meta.Revision)
 	revIndexPath := fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, result.Meta.Revision)
 
-	// save new revision to bucket
-	size, err := uc.gStorageClient.Write(ctx, latestIndexPath, bytes.NewBufferString(result.HtmlContent))
-	if err != nil {
-		log.WithError(err).WithField("path", latestIndexPath).Error("write index file failed")
-		return nil, err
-	}
-	log.WithField("size", size).WithField("path", latestIndexPath).Info("latest index file created")
-	size, err = uc.gStorageClient.Write(ctx, revIndexPath, bytes.NewBufferString(result.HtmlContent))
-	if err != nil {
-		log.WithError(err).WithField("path", revIndexPath).Error("write revision index file failed")
-		return nil, err
-	}
-	log.WithField("size", size).WithField("path", revIndexPath).Info("revision index file created")
-	size, err = uc.gStorageClient.Write(ctx, latestMetaPath, bytes.NewBufferString(result.Meta.JsonString()))
-	if err != nil {
-		log.WithError(err).WithField("path", latestMetaPath).Error("write latest meta file failed")
-		return nil, err
-	}
-	log.WithField("size", size).WithField("path", latestMetaPath).Info("latest meta file created")
-	size, err = uc.gStorageClient.Write(ctx, revMetaPath, bytes.NewBufferString(result.Meta.JsonString()))
-	if err != nil {
-		log.WithError(err).WithField("path", revMetaPath).Error("write revision meta file failed")
-		return nil, err
-	}
-	log.WithField("size", size).WithField("path", revMetaPath).Info("revision meta file created")
+	files := make([]*fileUpload, 0)
+	files = append(files, &fileUpload{latestIndexPath, []byte(result.HtmlContent)})
+	files = append(files, &fileUpload{revIndexPath, []byte(result.HtmlContent)})
+	files = append(files, &fileUpload{latestMetaPath, []byte(result.Meta.JsonString())})
+	files = append(files, &fileUpload{revMetaPath, []byte(result.Meta.JsonString())})
 
-	// save images
 	for _, img := range result.Images {
 		imgLatestPath := filepath.Join(uc.storagePath, request.FileId, "latest", img.Path())
 		imgRevPath := filepath.Join(uc.storagePath, request.FileId, strconv.Itoa(result.Meta.Revision), img.Path())
-
-		size, err = uc.gStorageClient.Write(ctx, imgLatestPath, bytes.NewBuffer(img.Content))
-		if err != nil {
-			log.WithError(err).WithField("path", imgLatestPath).Error("write latest image file failed")
-			return nil, err
-		}
-		log.WithField("size", size).WithField("path", imgLatestPath).Info("latest image file created")
-
-		size, err = uc.gStorageClient.Write(ctx, imgRevPath, bytes.NewBuffer(img.Content))
-		if err != nil {
-			log.WithError(err).WithField("path", imgRevPath).Error("write revision image file failed")
-			return nil, err
-		}
-		log.WithField("size", size).WithField("path", imgRevPath).Info("revision image file created")
+		files = append(files, &fileUpload{imgLatestPath, img.Content})
+		files = append(files, &fileUpload{imgRevPath, img.Content})
 	}
+
+	log.WithField("count", len(files)).Info("uploading files")
+	uploadFile := func(wg *sync.WaitGroup, path string, content []byte) {
+		defer wg.Done()
+		size, err := uc.gStorageClient.Write(ctx, path, bytes.NewBuffer(content))
+		if err != nil {
+			log.WithError(err).WithField("path", path).Error("upload file failed")
+		} else {
+			log.WithField("size", size).WithField("path", path).Info("file uploaded")
+		}
+	}
+
+	wg := &sync.WaitGroup{}
+	for _, f := range files {
+		wg.Add(1)
+		go uploadFile(wg, f.path, f.content)
+	}
+	wg.Wait()
+	log.Info("files uploaded")
 
 	return &requests.ViewerPublishResponse{
 		Revision: result.Meta.Revision,
 		Meta:     result.Meta,
 	}, nil
-
 }
 
 func (uc *viewerUsecase) View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error) {
