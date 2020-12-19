@@ -7,20 +7,17 @@ import (
 	"errors"
 	"fmt"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
+	"github.com/foxfoxio/codelabs-preview-go/internal/codelabs"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gstorage"
 	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
-	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
-	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
-	"github.com/googlecodelabs/tools/claat/fetch"
-	"github.com/googlecodelabs/tools/claat/parser"
 	_ "github.com/googlecodelabs/tools/claat/parser/gdoc"
-	"github.com/googlecodelabs/tools/claat/render"
-	"github.com/googlecodelabs/tools/claat/types"
-	"io"
-	"time"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
 )
 
 type Viewer interface {
@@ -29,6 +26,7 @@ type Viewer interface {
 	Publish(ctx context.Context, request *requests.ViewerPublishRequest) (*requests.ViewerPublishResponse, error)
 	View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error)
 	Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error)
+	Media(ctx context.Context, request *requests.ViewerMediaRequest) (*requests.ViewerMediaResponse, error)
 }
 
 func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string) Viewer {
@@ -53,75 +51,34 @@ type viewerUsecase struct {
 	storagePath    string
 }
 
-func (uc *viewerUsecase) parseCodeLabs(ctx context.Context, fileId string) ([]byte, *entities.Meta, error) {
+func (uc *viewerUsecase) parseCodeLabs(ctx context.Context, fileId string) (*codelabs.Result, error) {
 	log := cp.Log(ctx, "ViewerUsecase.parseCodeLabs").WithField("fileId", fileId)
 	s, err := uc.driveClient.ExportFile(ctx, fileId, "text/html")
 
 	if err != nil {
 		log.WithError(err).Error("google drive, get file failed")
-		return nil, nil, err
+		return nil, err
 	}
 
-	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{}, parser.Blackfriday)
-	codelabs, err := fetcher.SlurpCodelab(s.Reader)
-
-	if err != nil {
-		return nil, nil, errors.New("bad bad: " + err.Error())
-	}
-
-	var buffer bytes.Buffer
-	err = renderOutput(&buffer, codelabs.Codelab)
-
-	meta := &entities.Meta{
-		FileId:       fileId,
-		Revision:     1, // default revision
-		ExportedDate: time.Now(),
-		Meta: &entities.MetaEx{
-			Meta:          &codelabs.Meta,
-			TotalChapters: len(codelabs.Steps),
-		},
-	}
-
-	return buffer.Bytes(), meta, err
+	return codelabs.ParseCodeLab(fileId, s.Reader)
 }
 
 func (uc *viewerUsecase) Parse(ctx context.Context, request *requests.ViewerParseRequest) (*requests.ViewerParseResponse, error) {
 	log := cp.Log(ctx, "ViewerUsecase.Parse").WithField("fileId", request.FileId)
 	defer stopwatch.StartWithLogger(log).Stop()
 
-	res, _, err := uc.parseCodeLabs(ctx, request.FileId)
+	result, err := uc.parseCodeLabs(ctx, request.FileId)
 
 	response := ""
 	if err != nil {
 		response = err.Error()
 	} else {
-		response = string(res)
+		response = result.HtmlContentBase64()
 	}
 
 	return &requests.ViewerParseResponse{
 		Response: response,
 	}, nil
-}
-
-func renderOutput(w io.Writer, codelabs *types.Codelab) error {
-	data := &struct {
-		render.Context
-		Current *types.Step
-		StepNum int
-		Prev    bool
-		Next    bool
-	}{Context: render.Context{
-		Env:      "web",
-		Prefix:   "https://storage.googleapis.com",
-		Format:   "html",
-		GlobalGA: codelabs.GA,
-		Updated:  time.Now().Format(time.RFC3339),
-		Meta:     &codelabs.Meta,
-		Steps:    codelabs.Steps,
-		Extra:    map[string]string{},
-	}}
-
-	return render.Execute(w, "html", data)
 }
 
 func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraftRequest) (*requests.ViewerDraftResponse, error) {
@@ -189,12 +146,17 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 	return &requests.ViewerDraftResponse{FileId: f.Id}, nil
 }
 
+type fileUpload struct {
+	path    string
+	content []byte
+}
+
 func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPublishRequest) (*requests.ViewerPublishResponse, error) {
 	log := cp.Log(ctx, "ViewerUsecase.Publish").WithField("fileId", request.FileId)
 	defer stopwatch.StartWithLogger(log).Stop()
 
 	// parse codelabs
-	resBytes, meta, err := uc.parseCodeLabs(ctx, request.FileId)
+	result, err := uc.parseCodeLabs(ctx, request.FileId)
 
 	if err != nil {
 		return nil, err
@@ -211,50 +173,55 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 			return nil, err
 		}
 	} else {
-		latestMeta := &entities.Meta{}
+		latestMeta := &codelabs.Meta{}
 		mm := latestMetaBytes.Bytes()
 		if e := json.Unmarshal(mm, latestMeta); e != nil {
 			log.WithError(err).WithField("data", string(mm)).Error("unmarshal latest meta file failed")
 		} else {
 			log.WithField("revision", latestMeta.Revision).Error("latest revision")
-			meta.Revision = latestMeta.Revision + 1
+			result.Meta.Revision = latestMeta.Revision + 1
 		}
 	}
 
-	revMetaPath := fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, meta.Revision)
-	revIndexPath := fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, meta.Revision)
+	revMetaPath := fmt.Sprintf("%s/%s/%d/meta.json", uc.storagePath, request.FileId, result.Meta.Revision)
+	revIndexPath := fmt.Sprintf("%s/%s/%d/index.html", uc.storagePath, request.FileId, result.Meta.Revision)
 
-	// save new revision to bucket
-	size, err := uc.gStorageClient.Write(ctx, latestIndexPath, bytes.NewBuffer(resBytes))
-	if err != nil {
-		log.WithError(err).WithField("path", latestIndexPath).Error("write index file failed")
-		return nil, err
+	files := make([]*fileUpload, 0)
+	files = append(files, &fileUpload{latestIndexPath, []byte(result.HtmlContent)})
+	files = append(files, &fileUpload{revIndexPath, []byte(result.HtmlContent)})
+	files = append(files, &fileUpload{latestMetaPath, []byte(result.Meta.JsonString())})
+	files = append(files, &fileUpload{revMetaPath, []byte(result.Meta.JsonString())})
+
+	for _, img := range result.Images {
+		imgLatestPath := filepath.Join(uc.storagePath, request.FileId, "latest", img.Path())
+		imgRevPath := filepath.Join(uc.storagePath, request.FileId, strconv.Itoa(result.Meta.Revision), img.Path())
+		files = append(files, &fileUpload{imgLatestPath, img.Content})
+		files = append(files, &fileUpload{imgRevPath, img.Content})
 	}
-	log.WithField("size", size).WithField("path", latestIndexPath).Info("latest index file created")
-	size, err = uc.gStorageClient.Write(ctx, revIndexPath, bytes.NewBuffer(resBytes))
-	if err != nil {
-		log.WithError(err).WithField("path", revIndexPath).Error("write revision index file failed")
-		return nil, err
+
+	log.WithField("count", len(files)).Info("uploading files")
+	uploadFile := func(wg *sync.WaitGroup, path string, content []byte) {
+		defer wg.Done()
+		size, err := uc.gStorageClient.Write(ctx, path, bytes.NewBuffer(content))
+		if err != nil {
+			log.WithError(err).WithField("path", path).Error("upload file failed")
+		} else {
+			log.WithField("size", size).WithField("path", path).Info("file uploaded")
+		}
 	}
-	log.WithField("size", size).WithField("path", revIndexPath).Info("revision index file created")
-	size, err = uc.gStorageClient.Write(ctx, latestMetaPath, bytes.NewBufferString(utils.StringifyIndent(meta)))
-	if err != nil {
-		log.WithError(err).WithField("path", latestMetaPath).Error("write latest meta file failed")
-		return nil, err
+
+	wg := &sync.WaitGroup{}
+	for _, f := range files {
+		wg.Add(1)
+		go uploadFile(wg, f.path, f.content)
 	}
-	log.WithField("size", size).WithField("path", latestMetaPath).Info("latest meta file created")
-	size, err = uc.gStorageClient.Write(ctx, revMetaPath, bytes.NewBufferString(utils.StringifyIndent(meta)))
-	if err != nil {
-		log.WithError(err).WithField("path", revMetaPath).Error("write revision meta file failed")
-		return nil, err
-	}
-	log.WithField("size", size).WithField("path", revMetaPath).Info("revision meta file created")
+	wg.Wait()
+	log.Info("files uploaded")
 
 	return &requests.ViewerPublishResponse{
-		Revision: meta.Revision,
-		Meta:     meta,
+		Revision: result.Meta.Revision,
+		Meta:     result.Meta,
 	}, nil
-
 }
 
 func (uc *viewerUsecase) View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error) {
@@ -283,6 +250,38 @@ func (uc *viewerUsecase) View(ctx context.Context, request *requests.ViewerViewR
 	return &requests.ViewerViewResponse{Response: indexBytes.String()}, nil
 }
 
+func (uc *viewerUsecase) Media(ctx context.Context, request *requests.ViewerMediaRequest) (*requests.ViewerMediaResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.Media").
+		WithField("fileId", request.FileId).
+		WithField("revision", request.Revision).
+		WithField("filename", request.Filename)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	rev := "latest"
+	if request.Revision > 0 {
+		rev = strconv.Itoa(request.Revision)
+	}
+	path := fmt.Sprintf("%s/%s/%s/img/%s", uc.storagePath, request.FileId, rev, request.Filename)
+
+	imgBytes, err := uc.gStorageClient.Read(ctx, path)
+
+	if err != nil {
+		log.WithError(err).WithField("path", path).Error("read index file failed")
+		if gstorage.IsNotExistError(err) {
+
+			return nil, errors.New("not found")
+		} else {
+			return nil, err
+		}
+	}
+
+	ext := strings.TrimLeft(filepath.Ext(request.Filename), ".")
+	return &requests.ViewerMediaResponse{
+		ContentType: fmt.Sprintf("image/%s", ext),
+		Content:     imgBytes.Bytes(),
+	}, nil
+}
+
 func (uc *viewerUsecase) Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error) {
 	log := cp.Log(ctx, "ViewerUsecase.Meta").WithField("fileId", request.FileId).WithField("revision", request.Revision)
 	defer stopwatch.StartWithLogger(log).Stop()
@@ -306,7 +305,7 @@ func (uc *viewerUsecase) Meta(ctx context.Context, request *requests.ViewerMetaR
 		}
 	}
 
-	meta := &entities.Meta{}
+	meta := &codelabs.Meta{}
 	mm := metaBytes.Bytes()
 	if e := json.Unmarshal(mm, meta); e != nil {
 		log.WithError(err).WithField("data", string(mm)).Error("unmarshal meta file failed")
