@@ -55,7 +55,7 @@ __body__
 
 ### PREVIEW
 #### request
-`GET http://localhost:3000/v/{{fileid}}/preview`
+`GET http://localhost:3000/v/{{fileid}}/preview/`
 
 #### response
 `codelabs content in html`

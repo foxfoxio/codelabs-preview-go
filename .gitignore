@@ -33,3 +33,4 @@ dist
 config.yml
 .firebase/
 *.key.json
+katex_out.html
