@@ -22,9 +22,11 @@ func createCodelabsRoutes(viewerEp endpoints.Viewer) routes {
 		r("/{fileId}/meta/latest", viewerEp.Meta, "GET"),
 		r("/{fileId}/meta/{revision}", viewerEp.Meta, "GET"),
 		r("/{fileId}/meta", viewerEp.Meta, "GET"),
-		r("/{fileId}/latest", viewerEp.View, "GET"),
+		r("/{fileId}/latest/", viewerEp.View, "GET"),
+		r("/{fileId}/latest/img/{filename}", viewerEp.Media, "GET"),
 		r("/{fileId}/preview", viewerEp.Preview, "GET"),
-		r("/{fileId}/{revision}", viewerEp.View, "GET"),
+		r("/{fileId}/{revision}/", viewerEp.View, "GET"),
+		r("/{fileId}/{revision}/img/{filename}", viewerEp.Media, "GET"),
 		r("/", viewerEp.Draft, "POST"),
 	}
 }

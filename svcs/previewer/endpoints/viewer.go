@@ -24,6 +24,7 @@ type Viewer interface {
 	Draft(w http.ResponseWriter, r *http.Request)
 	Publish(w http.ResponseWriter, r *http.Request)
 	View(w http.ResponseWriter, r *http.Request)
+	Media(w http.ResponseWriter, r *http.Request)
 	Meta(w http.ResponseWriter, r *http.Request)
 }
 
@@ -79,7 +80,6 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if fileId == "" {
-		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = fmt.Fprint(w, "bad request")
 		return
@@ -89,13 +89,12 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 		FileId: fileId,
 	})
 
-	w.Header().Set("Cache-Control", "no-store")
 	if err != nil {
 		fmt.Println(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprint(w, err.Error())
 	} else {
-		_, _ = fmt.Fprint(w, response.Response)
+		responseGZip(w, []byte(response.Response), "text/html")
 	}
 }
 
@@ -222,7 +221,60 @@ func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprint(w, err.Error())
 	} else {
-		_, _ = fmt.Fprint(w, response.Response)
+		responseGZip(w, []byte(response.Response), "text/html")
+	}
+}
+
+func (ep *viewerEndpoint) Media(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	ctx := ctx_helper.NewContextFromRequest(r)
+
+	params := mux.Vars(r)
+	fileId := ""
+	revision := 0
+	filename := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+	if f, ok := params["filename"]; ok {
+		filename = f
+	}
+
+	if rev, ok := params["revision"]; ok {
+		if rev == "latest" {
+			revision = 0
+		} else if r, e := strconv.ParseInt(rev, 10, 32); e != nil {
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprint(w, "bad request")
+		} else {
+			revision = int(r)
+		}
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	response, err := ep.viewerUsecase.Media(ctx, &requests.ViewerMediaRequest{
+		FileId:   fileId,
+		Revision: revision,
+		Filename: filename,
+	})
+
+	if err != nil {
+		if err.Error() == "not found" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, err.Error())
+	} else {
+		responseGZip(w, response.Content, response.ContentType)
 	}
 }
 

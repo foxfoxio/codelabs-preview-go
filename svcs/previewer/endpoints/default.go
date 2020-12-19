@@ -5,6 +5,7 @@
 package endpoints
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"net/http"
 )
@@ -39,17 +40,30 @@ func sendNotFound(w http.ResponseWriter) {
 }
 
 func sendResponse(w http.ResponseWriter, response *apiResponse) {
-
 	// explicitly specify cache-control here to prevent gcp-frontend server caching
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
 	if response != nil {
 		js, err := json.Marshal(response)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		_, _ = w.Write(js)
+		responseGZip(w, js, "application/json")
+	} else {
+		w.WriteHeader(200)
 	}
+}
+
+func responseGZip(w http.ResponseWriter, content []byte, contentType string) {
+	w.Header().Set("Content-Type", contentType)
+	writer, err := gzip.NewWriterLevel(w, gzip.BestCompression)
+	if err != nil {
+		// fallback to original way
+		_, _ = w.Write(content)
+		return
+	}
+
+	defer writer.Close()
+	w.Header().Set("Content-Encoding", "gzip")
+	_, _ = writer.Write(content)
 }

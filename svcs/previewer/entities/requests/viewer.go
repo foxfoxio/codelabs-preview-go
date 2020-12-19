@@ -2,7 +2,7 @@ package requests
 
 import (
 	"fmt"
-	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
+	"github.com/foxfoxio/codelabs-preview-go/internal/codelabs"
 )
 
 type ViewerParseRequest struct {
@@ -19,7 +19,7 @@ type ViewerPublishRequest struct {
 
 type ViewerPublishResponse struct {
 	Revision int
-	Meta     *entities.Meta
+	Meta     *codelabs.Meta
 }
 
 type ViewerMetaRequest struct {
@@ -28,12 +28,23 @@ type ViewerMetaRequest struct {
 }
 
 type ViewerMetaResponse struct {
-	Meta *entities.Meta
+	Meta *codelabs.Meta
 }
 
 type ViewerViewRequest struct {
 	FileId   string
 	Revision int
+}
+
+type ViewerMediaRequest struct {
+	FileId   string
+	Revision int
+	Filename string
+}
+
+type ViewerMediaResponse struct {
+	ContentType string
+	Content     []byte
 }
 
 type ViewerViewResponse struct {
