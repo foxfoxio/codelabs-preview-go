@@ -11,6 +11,8 @@ import (
 func createAuthRoutes(authEp endpoints.AuthHttp) routes {
 	return routes{
 		r("/oauth2/callback", authEp.Oauth2Callback, "GET"),
+		r("/login", authEp.LoginWithToken, "GET"),
+		r("/logout", authEp.Logout, "GET"),
 	}
 }
 

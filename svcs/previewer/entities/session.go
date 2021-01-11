@@ -19,10 +19,11 @@ type UserSession struct {
 	Name        string    `json:"name"`
 	UserId      string    `json:"userId"`
 	Email       string    `json:"email"`
-	State       string    `json:"state"`
-	Token       string    `json:"token"`
+	State       string    `json:"state,omitempty"`
+	Token       string    `json:"token,omitempty"`
+	ExpiresAt   time.Time `json:"expires_at"`
 	CreatedAt   time.Time `json:"createdAt"`
-	RedirectUrl string    `json:"redirectUrl"`
+	RedirectUrl string    `json:"redirectUrl,omitempty"`
 	session     *sessions.Session
 }
 
@@ -64,8 +65,17 @@ func (s *UserSession) IsValid() bool {
 		return false
 	}
 
-	t := s.Oauth2Token()
-	return t != nil && t.Valid()
+	//t := s.Oauth2Token()
+	//return t != nil && t.Valid()
+	return s.Token != "" && !s.IsExpired()
+}
+
+func (s *UserSession) IsExpired() bool {
+	if s == nil {
+		return false
+	}
+
+	return s.ExpiresAt.Before(time.Now())
 }
 
 func (s *UserSession) String() string {

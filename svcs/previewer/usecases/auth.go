@@ -92,6 +92,7 @@ func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request
 		return nil, err
 	}
 	return &requests.AuthProcessFirebaseAuthorizationResponse{
+		Name:      claim.Name,
 		UserId:    claim.UserId,
 		Email:     claim.Email,
 		ExpiresAt: claim.ExpiresAt(),

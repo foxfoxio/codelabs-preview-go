@@ -3,8 +3,9 @@ list:
 	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$'
 
 build-playground:
-	@echo Building playground service...
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ./dist/playground-linux-x64 ./cmd/playground/main.go
+	@echo Building playground linux service...
+	#GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o ./dist/playground-linux-x64 ./cmd/playground/main.go
+	go build -o ./dist/playground-darwin-x64 ./cmd/playground/main.go
 
 build-docker-image:
 	docker build -f ./scripts/Dockerfile -t foxfox-codelabs-preview:latest .

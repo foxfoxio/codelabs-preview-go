@@ -50,10 +50,8 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/felixge/httpsnoop v1.0.1 h1:lvB5Jl89CsZtGIWuTcDM1E/vkVs49/Ml7JJe07l8SPQ=
 github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
-github.com/foxfoxio/tools/claat v0.0.0-20210104154807-584dd33ee5c6 h1:FYIgZdOHhGvmyoxEFW85nQnKVD+KG8iiEaAQhVhFR6M=
-github.com/foxfoxio/tools/claat v0.0.0-20210104154807-584dd33ee5c6/go.mod h1:eTqR/UWGBkZWkbwH0mkI/yuI+QZxfB6YxgK7lq0QQ9Q=
-github.com/foxfoxio/tools/claat v0.0.0-20210104165204-7dd57db6f86e h1:rhiTcwLzq0UskKn1ju7TKkd3usMJUAHqlJzNMNodYHw=
-github.com/foxfoxio/tools/claat v0.0.0-20210104165204-7dd57db6f86e/go.mod h1:sCbpyII30xHQzSyhtju9rbTWeg7Bp9mv8Ww9Qf2lW8s=
+github.com/foxfoxio/tools/claat v0.0.0-20210108052356-34be7cd7c65d h1:zn93odsxVDak8S8ZSObHQBJnMqd2UsbiKQpe9k9YS+E=
+github.com/foxfoxio/tools/claat v0.0.0-20210108052356-34be7cd7c65d/go.mod h1:sCbpyII30xHQzSyhtju9rbTWeg7Bp9mv8Ww9Qf2lW8s=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
@@ -150,7 +148,6 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/x1ddos/csslex v0.0.0-20160125172232-7894d8ab8bfe h1:SX7lFdwn40ahL78CxofAh548P+dcWjdRNpirU7+sKiE=
 github.com/x1ddos/csslex v0.0.0-20160125172232-7894d8ab8bfe/go.mod h1:SwmD4V+Y0RjNqvt8hW2FpZNkQnoFVNtBF9qEnevUueU=
-github.com/yuin/goldmark v1.1.3/go.mod h1:hDgn8A2EV4OniExoeJs1fSrmEc/T7w8+Teyq8YkThxQ=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.30/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

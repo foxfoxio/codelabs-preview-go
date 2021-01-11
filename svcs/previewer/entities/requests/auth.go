@@ -32,7 +32,12 @@ type AuthProcessFirebaseAuthorizationRequest struct {
 }
 
 type AuthProcessFirebaseAuthorizationResponse struct {
-	UserId    string
-	Email     string
-	ExpiresAt time.Time
+	UserId    string    `json:"user_id"`
+	Email     string    `json:"email"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Name      string    `json:"name"`
+}
+
+type AuthLoginWithToken struct {
+	Token string `json:"token"`
 }
