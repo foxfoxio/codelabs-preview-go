@@ -178,7 +178,7 @@ func (uc *viewerUsecase) Publish(ctx context.Context, request *requests.ViewerPu
 		if e := json.Unmarshal(mm, latestMeta); e != nil {
 			log.WithError(err).WithField("data", string(mm)).Error("unmarshal latest meta file failed")
 		} else {
-			log.WithField("revision", latestMeta.Revision).Error("latest revision")
+			log.WithField("revision", latestMeta.Revision).Info("latest revision")
 			result.Meta.Revision = latestMeta.Revision + 1
 		}
 	}

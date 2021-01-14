@@ -65,9 +65,8 @@ func (s *UserSession) IsValid() bool {
 		return false
 	}
 
-	//t := s.Oauth2Token()
 	//return t != nil && t.Valid()
-	return s.Token != "" && !s.IsExpired()
+	return s.Token != "" && s.Email != ""
 }
 
 func (s *UserSession) IsExpired() bool {

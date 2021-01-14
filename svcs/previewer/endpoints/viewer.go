@@ -103,9 +103,9 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 	ctx := ctx_helper.NewContextFromRequest(r)
 	log := cp.Log(ctx, "ViewerEndpoint.Draft")
 	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-
+	var err error
 	if !session.IsValid() {
-		_, err := ep.authenticate(ctx, r)
+		ctx, err = ep.authenticate(ctx, r)
 
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -140,9 +140,9 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-
+	var err error
 	if !session.IsValid() {
-		_, err := ep.authenticate(ctx, r)
+		ctx, err = ep.authenticate(ctx, r)
 
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -325,9 +325,9 @@ func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
 	log := cp.Log(ctx, "ViewerEndpoint.Meta")
 
 	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-
+	var err error
 	if !session.IsValid() {
-		_, err := ep.authenticate(ctx, r)
+		ctx, err = ep.authenticate(ctx, r)
 
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)

@@ -95,6 +95,15 @@ func (ep *authHttpEndpoint) LoginWithToken(w http.ResponseWriter, r *http.Reques
 	session.Token = authorizationToken
 	session.State = ""
 	session.RedirectUrl = ""
+
+	if !session.IsValid() {
+		log.WithField("ExpiresAt", session.ExpiresAt).Error("token is not valid")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprintf(w, "invalid token")
+		return
+
+	}
+
 	err = session.Save(r, w)
 	if err != nil {
 		fmt.Println("xxx save session failed", err)
