@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-func ParseCodeLab(fileId string, reader io.ReadCloser) (*Result, error) {
+func ParseCodeLabWithExtractImage(fileId string, reader io.ReadCloser) (*Result, error) {
 	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{}, parser.Blackfriday)
 	codelabs, err := fetcher.SlurpCodelab(reader)
 
@@ -54,6 +54,38 @@ func ParseCodeLab(fileId string, reader io.ReadCloser) (*Result, error) {
 	return &Result{
 		HtmlContent: buffer.String(),
 		Images:      images,
+		Meta:        meta,
+	}, nil
+}
+
+func ParseCodeLab(fileId string, reader io.ReadCloser) (*Result, error) {
+	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{}, parser.Blackfriday)
+	codelabs, err := fetcher.SlurpCodelab(reader)
+
+	if err != nil {
+		return nil, xerrors.New("parse codelabs failed: " + err.Error())
+	}
+
+	var buffer bytes.Buffer
+	err = renderOutput(&buffer, codelabs.Codelab)
+
+	if err != nil {
+		return nil, xerrors.New("render output failed: " + err.Error())
+	}
+
+	meta := &Meta{
+		FileId:       fileId,
+		Revision:     1, // default revision
+		ExportedDate: time.Now(),
+		Meta: &MetaEx{
+			Meta:          &codelabs.Meta,
+			TotalChapters: len(codelabs.Steps),
+		},
+	}
+
+	return &Result{
+		HtmlContent: buffer.String(),
+		Images:      nil,
 		Meta:        meta,
 	}, nil
 }
