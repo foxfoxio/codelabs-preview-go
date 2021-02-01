@@ -13,6 +13,15 @@ type ViewerParseResponse struct {
 	Response string
 }
 
+type CopyGoogleDocRequest struct {
+	GoogleDocPath string
+	FileName      *string
+}
+
+type CopyGoogleDocResponse struct {
+	GoogleDocPath string
+}
+
 type ViewerPublishRequest struct {
 	FileId string
 }

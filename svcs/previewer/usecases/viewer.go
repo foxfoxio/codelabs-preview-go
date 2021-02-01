@@ -11,10 +11,12 @@ import (
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdoc"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gdrive"
 	"github.com/foxfoxio/codelabs-preview-go/internal/gstorage"
+	"github.com/foxfoxio/codelabs-preview-go/internal/ptr"
 	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	_ "github.com/googlecodelabs/tools/claat/parser/gdoc"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,9 +29,10 @@ type Viewer interface {
 	View(ctx context.Context, request *requests.ViewerViewRequest) (*requests.ViewerViewResponse, error)
 	Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error)
 	Media(ctx context.Context, request *requests.ViewerMediaRequest) (*requests.ViewerMediaResponse, error)
+	Copy(ctx context.Context, request *requests.CopyGoogleDocRequest) (*requests.CopyGoogleDocResponse, error)
 }
 
-func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string) Viewer {
+func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string, driveTemporaryPathId string) Viewer {
 	return &viewerUsecase{
 		driveClient:    driveClient,
 		gDocClient:     gDocClient,
@@ -38,6 +41,7 @@ func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient
 		driveRootId:    driveRootId,
 		adminEmail:     adminEmail,
 		storagePath:    storagePath,
+		driveTempId:    driveTemporaryPathId,
 	}
 }
 
@@ -49,6 +53,7 @@ type viewerUsecase struct {
 	driveRootId    string
 	adminEmail     string
 	storagePath    string
+	driveTempId    string
 }
 
 func (uc *viewerUsecase) parseCodeLabs(ctx context.Context, fileId string) (*codelabs.Result, error) {
@@ -102,7 +107,7 @@ func (uc *viewerUsecase) Draft(ctx context.Context, request *requests.ViewerDraf
 	}
 
 	// create new document from template
-	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, request.Title(), uc.driveRootId)
+	f, err := uc.driveClient.CopyFile(ctx, uc.templateFileId, ptr.String(request.Title()), uc.driveRootId)
 	if err != nil {
 		log.WithError(err).Error("google drive, copy file failed")
 		return nil, err
@@ -313,4 +318,75 @@ func (uc *viewerUsecase) Meta(ctx context.Context, request *requests.ViewerMetaR
 	}
 
 	return &requests.ViewerMetaResponse{Meta: meta}, nil
+}
+
+func extractGoogleDocFileId(googleDocPath string) (kind string, fileId string) {
+	pathMatcher := regexp.MustCompile(`https://docs.google.com/(spreadsheets|document|presentation)/d/([A-z0-9\-]+)`)
+
+	if ret := pathMatcher.FindStringSubmatch(googleDocPath); len(ret) == 3 {
+		return ret[1], ret[2]
+	}
+	return
+}
+
+func constructGoogleDocPath(kind string, fileId string) string {
+	return fmt.Sprintf(`https://docs.google.com/%s/d/%s`, kind, fileId)
+}
+
+func (uc *viewerUsecase) Copy(ctx context.Context, request *requests.CopyGoogleDocRequest) (*requests.CopyGoogleDocResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.Copy").WithField("googleDocPath", request.GoogleDocPath)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	if request.FileName != nil {
+		log.WithField("fileName", *request.FileName).Info("with file name")
+	}
+
+	session := getSession(ctx)
+
+	if session == nil {
+		log.Errorf("get user session failed")
+		return nil, errors.New("unauthorized")
+	}
+
+	kind, fileId := extractGoogleDocFileId(request.GoogleDocPath)
+
+	if kind == "" || fileId == "" {
+		log.WithField("kind", kind).WithField("fileId", fileId).Errorf("extract path information failed")
+		return nil, errors.New("invalid file path")
+	}
+
+	s, err := uc.driveClient.CopyFile(ctx, fileId, request.FileName, uc.driveTempId)
+
+	if err != nil {
+		log.WithError(err).Error("google drive, copy file failed")
+		return nil, err
+	}
+
+	log.WithField("fileId", s.Id).Info("file copied")
+
+	x, err := uc.driveClient.GrantWritePermission(ctx, s.Id, session.Email)
+	if err != nil {
+		log.WithError(err).Error("google drive, share file failed")
+		return nil, err
+	}
+
+	log.WithField("permission_id", x.Id).WithField("to", session.Email).Info("file shared")
+
+	go func(ctx context.Context) {
+		// set document owner
+		if uc.adminEmail != "" {
+			s, err := uc.driveClient.GrantOwnerPermission(ctx, s.Id, uc.adminEmail)
+
+			if err != nil {
+				log.WithError(err).Error("google drive, set file owner failed")
+			}
+
+			log.WithField("permission_id", s.Id).Info("owner set")
+		}
+
+	}(context.Background())
+
+	filePath := constructGoogleDocPath(kind, s.Id)
+
+	return &requests.CopyGoogleDocResponse{GoogleDocPath: filePath}, nil
 }

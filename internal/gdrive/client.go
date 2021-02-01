@@ -44,11 +44,15 @@ func createFile(ctx context.Context, service *drive.Service, name string, mimeTy
 	return file, nil
 }
 
-func copyFile(ctx context.Context, service *drive.Service, sourceFileId string, name string, parentId string) (*drive.File, error) {
+func copyFile(ctx context.Context, service *drive.Service, sourceFileId string, name *string, parentId string) (*drive.File, error) {
 	f := &drive.File{
-		Name:    name,
 		Parents: []string{parentId},
 	}
+
+	if name != nil {
+		f.Name = *name
+	}
+
 	file, err := service.Files.Copy(sourceFileId, f).Context(ctx).Do()
 
 	if err != nil {

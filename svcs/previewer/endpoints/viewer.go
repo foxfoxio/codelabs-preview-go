@@ -26,6 +26,7 @@ type Viewer interface {
 	View(w http.ResponseWriter, r *http.Request)
 	Media(w http.ResponseWriter, r *http.Request)
 	Meta(w http.ResponseWriter, r *http.Request)
+	Copy(w http.ResponseWriter, r *http.Request)
 }
 
 func NewViewer(sessionUsecase usecases.Session, viewerUsecase usecases.Viewer, authUsecase usecases.Auth) Viewer {
@@ -387,6 +388,63 @@ func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
 	response = successResponse(&requests2.HttpMetaResponse{
 		Meta: meta,
 	})
+}
+
+func (ep *viewerEndpoint) Copy(w http.ResponseWriter, r *http.Request) {
+	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
+	var err error
+	if !session.IsValid() {
+		ctx, err = ep.authenticate(ctx, r)
+
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, "unauthorized")
+			return
+		}
+	}
+
+	url := r.URL.Query().Get("url")
+	name := r.URL.Query().Get("name")
+
+	if url == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	req := &requests.CopyGoogleDocRequest{
+		GoogleDocPath: url,
+	}
+
+	if name != "" {
+		req.FileName = &name
+	}
+
+	res, err := ep.viewerUsecase.Copy(ctx, req)
+
+	w.Header().Set("Cache-Control", "no-store")
+	if err != nil {
+		if err.Error() == "not found" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if err.Error() == "unauthorized" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if err.Error() == "invalid file path" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprint(w, err.Error())
+	} else {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Location", res.GoogleDocPath)
+		w.WriteHeader(http.StatusMovedPermanently)
+		_, _ = fmt.Fprint(w, "redirecting...")
+	}
 }
 
 func structToMap(data interface{}) (map[string]interface{}, error) {

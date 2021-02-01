@@ -38,6 +38,7 @@ func createRootRoutes(viewerEp endpoints.Viewer) routes {
 	return routes{
 		// for backward compat.
 		r("/draft", viewerEp.Draft, "POST"),
+		r("/copy", viewerEp.Copy, "GET"),
 		r("/", viewerEp.PreviewWithQuery, "GET"),
 	}
 }
