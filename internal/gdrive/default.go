@@ -21,7 +21,7 @@ type DrivePermission struct {
 type Client interface {
 	CreateDir(ctx context.Context, name string, parentId string) (*DriveFile, error)
 	CreateFile(ctx context.Context, name string, mimeType string, content io.Reader, parentId string) (*DriveFile, error)
-	CopyFile(ctx context.Context, sourceFileId string, destinationName string, parentId string) (*DriveFile, error)
+	CopyFile(ctx context.Context, sourceFileId string, destinationName *string, parentId string) (*DriveFile, error)
 	GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GrantOwnerPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GetFile(ctx context.Context, fileId string) (*DriveFileReader, error)
@@ -58,7 +58,7 @@ func (c *client) CreateFile(ctx context.Context, name string, mimeType string, c
 	return &DriveFile{Id: f.Id}, nil
 }
 
-func (c *client) CopyFile(ctx context.Context, sourceFileId string, destinationName string, parentId string) (*DriveFile, error) {
+func (c *client) CopyFile(ctx context.Context, sourceFileId string, destinationName *string, parentId string) (*DriveFile, error) {
 	f, err := copyFile(ctx, c.service, sourceFileId, destinationName, parentId)
 
 	if err != nil {

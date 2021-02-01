@@ -33,6 +33,7 @@ func New(rootRouter *mux.Router) {
 
 	templateId := os.Getenv("CP_TEMPLATE_ID")
 	driveRootId := os.Getenv("CP_DRIVE_ROOT_ID")
+	driveTempId := os.Getenv("CP_DRIVE_TEMP_ID")
 	adminEmail := os.Getenv("CP_ADMIN_EMAIL")
 	bucketName := os.Getenv("CP_BUCKET_NAME")
 	storagePath := os.Getenv("CP_STORAGE_PATH")
@@ -43,6 +44,10 @@ func New(rootRouter *mux.Router) {
 
 	if driveRootId == "" {
 		driveRootId = "1uH1lq__vo-PTusArFsOduKfHk6ZhW1gX"
+	}
+
+	if driveTempId == "" {
+		driveTempId = "1uH1lq__vo-PTusArFsOduKfHk6ZhW1gX"
 	}
 
 	if bucketName == "" {
@@ -59,7 +64,7 @@ func New(rootRouter *mux.Router) {
 	gStorageClient := gstorage.NewClient(bucketName)
 
 	sessionUsecase := usecases.NewSession(store, "__session")
-	viewerUsecase := usecases.NewViewer(driveClient, gdocClient, gStorageClient, templateId, driveRootId, adminEmail, storagePath)
+	viewerUsecase := usecases.NewViewer(driveClient, gdocClient, gStorageClient, templateId, driveRootId, adminEmail, storagePath, driveTempId)
 	authUsecase := usecases.NewAuth(config)
 
 	authEp := endpoints.NewAuth(sessionUsecase, authUsecase)
