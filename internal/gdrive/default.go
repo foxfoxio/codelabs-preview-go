@@ -7,7 +7,8 @@ import (
 )
 
 type DriveFile struct {
-	Id string
+	Id   string
+	Name string
 }
 
 type DriveFileReader struct {
@@ -25,6 +26,7 @@ type Client interface {
 	GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GrantOwnerPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GetFile(ctx context.Context, fileId string) (*DriveFileReader, error)
+	GetFileInfo(ctx context.Context, fileId string) (*DriveFile, error)
 	ExportFile(ctx context.Context, fileId string, mimeType string) (*DriveFileReader, error)
 }
 
@@ -45,7 +47,7 @@ func (c *client) CreateDir(ctx context.Context, name string, parentId string) (*
 		return nil, err
 	}
 
-	return &DriveFile{Id: f.Id}, nil
+	return &DriveFile{Id: f.Id, Name: f.Name}, nil
 }
 
 func (c *client) CreateFile(ctx context.Context, name string, mimeType string, content io.Reader, parentId string) (*DriveFile, error) {
@@ -55,7 +57,7 @@ func (c *client) CreateFile(ctx context.Context, name string, mimeType string, c
 		return nil, err
 	}
 
-	return &DriveFile{Id: f.Id}, nil
+	return &DriveFile{Id: f.Id, Name: f.Name}, nil
 }
 
 func (c *client) CopyFile(ctx context.Context, sourceFileId string, destinationName *string, parentId string) (*DriveFile, error) {
@@ -65,7 +67,7 @@ func (c *client) CopyFile(ctx context.Context, sourceFileId string, destinationN
 		return nil, err
 	}
 
-	return &DriveFile{Id: f.Id}, nil
+	return &DriveFile{Id: f.Id, Name: f.Name}, nil
 }
 
 func (c *client) GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error) {
@@ -98,6 +100,16 @@ func (c *client) GetFile(ctx context.Context, fileId string) (*DriveFileReader, 
 	return &DriveFileReader{
 		Reader: reader,
 	}, nil
+}
+
+func (c *client) GetFileInfo(ctx context.Context, fileId string) (*DriveFile, error) {
+	f, err := getInfo(ctx, c.service, fileId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &DriveFile{Id: f.Id, Name: f.Name}, nil
 }
 
 func (c *client) ExportFile(ctx context.Context, fileId string, mimeType string) (*DriveFileReader, error) {

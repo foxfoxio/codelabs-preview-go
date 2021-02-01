@@ -355,7 +355,29 @@ func (uc *viewerUsecase) Copy(ctx context.Context, request *requests.CopyGoogleD
 		return nil, errors.New("invalid file path")
 	}
 
-	s, err := uc.driveClient.CopyFile(ctx, fileId, request.FileName, uc.driveTempId)
+	f, err := uc.driveClient.GetFileInfo(ctx, fileId)
+
+	if err != nil {
+		log.WithError(err).Error("google drive, get file info failed")
+		return nil, err
+	}
+
+	fileName := f.Name
+	if request.FileName != nil {
+		fileName = *request.FileName
+	}
+
+	if request.Prefix != nil {
+		fileName = *request.Prefix + fileName
+	}
+
+	if request.Suffix != nil {
+		fileName = fileName + *request.Suffix
+	}
+
+	log.WithField("target", fileName).Info("copying file")
+
+	s, err := uc.driveClient.CopyFile(ctx, fileId, &fileName, uc.driveTempId)
 
 	if err != nil {
 		log.WithError(err).Error("google drive, copy file failed")

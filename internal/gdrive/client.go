@@ -119,6 +119,17 @@ func getFile(ctx context.Context, service *drive.Service, fileId string) (io.Rea
 	return response.Body, nil
 }
 
+func getInfo(ctx context.Context, service *drive.Service, fileId string) (*drive.File, error) {
+	response, err := service.Files.Get(fileId).Context(ctx).Do()
+
+	if err != nil {
+		log.Println("Could not get file info: " + err.Error())
+		return nil, err
+	}
+
+	return response, nil
+}
+
 func exportFile(ctx context.Context, service *drive.Service, fileId string, mimeType string) (io.ReadCloser, error) {
 	response, err := service.Files.Export(fileId, mimeType).Context(ctx).Download()
 

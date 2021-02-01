@@ -16,6 +16,8 @@ type ViewerParseResponse struct {
 type CopyGoogleDocRequest struct {
 	GoogleDocPath string
 	FileName      *string
+	Prefix        *string
+	Suffix        *string
 }
 
 type CopyGoogleDocResponse struct {

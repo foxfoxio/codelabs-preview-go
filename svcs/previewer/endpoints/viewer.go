@@ -405,6 +405,8 @@ func (ep *viewerEndpoint) Copy(w http.ResponseWriter, r *http.Request) {
 
 	url := r.URL.Query().Get("url")
 	name := r.URL.Query().Get("name")
+	prefix := r.URL.Query().Get("prefix")
+	suffix := r.URL.Query().Get("suffix")
 
 	if url == "" {
 		w.Header().Set("Cache-Control", "no-store")
@@ -419,6 +421,14 @@ func (ep *viewerEndpoint) Copy(w http.ResponseWriter, r *http.Request) {
 
 	if name != "" {
 		req.FileName = &name
+	}
+
+	if prefix != "" {
+		req.Prefix = &prefix
+	}
+
+	if suffix != "" {
+		req.Suffix = &suffix
 	}
 
 	res, err := ep.viewerUsecase.Copy(ctx, req)
