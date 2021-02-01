@@ -19,6 +19,7 @@ func createAuthRoutes(authEp endpoints.AuthHttp) routes {
 func createCodelabsRoutes(viewerEp endpoints.Viewer) routes {
 	return routes{
 		// REST model
+		r("/copy", viewerEp.Copy, "GET"),
 		r("/{fileId}", viewerEp.Publish, "POST"),
 		r("/{fileId}/", viewerEp.View, "GET"),
 		r("/{fileId}/img/{filename}", viewerEp.Media, "GET"),
