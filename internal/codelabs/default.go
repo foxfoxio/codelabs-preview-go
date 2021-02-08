@@ -16,7 +16,8 @@ const ImageDir = "img"
 
 type MetaEx struct {
 	*types.Meta
-	TotalChapters int `json:"totalChapters"`
+	TotalChapters int    `json:"totalChapters"`
+	Slug          string `json:"slug"`
 }
 
 type Meta struct {
