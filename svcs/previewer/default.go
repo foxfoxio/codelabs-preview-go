@@ -9,8 +9,8 @@ import (
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/transports"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 	"os"
 	"strings"
 )
@@ -23,10 +23,11 @@ func New() *bootstrap.Server {
 	bucketName := os.Getenv("CP_BUCKET_NAME")
 	storagePath := os.Getenv("CP_STORAGE_PATH")
 	allowedOriginsStr := os.Getenv("CP_ALLOWED_ORIGIN")
+	corsEnabled := os.Getenv("CP_CORS_ENABLED") == "true"
 
-	allowedOrigins := make([]string, 0)
+	allowedOrigins := []string{"*"}
 	if x := strings.TrimSpace(allowedOriginsStr); x != "" {
-		allowedOrigins = append(allowedOrigins, strings.Split(x, ",")...)
+		allowedOrigins = strings.Split(x, ",")
 	}
 
 	if templateId == "" {
@@ -61,17 +62,18 @@ func New() *bootstrap.Server {
 	router := mux.NewRouter()
 	transports.RegisterHttpRouter(router, viewerEp)
 	withAuth := authUsecase.Handler(router)
+	handler := withAuth
 
-	options := cors.Options{
-		AllowCredentials: true,
-		Debug:            true,
+	if corsEnabled {
+		originOptions := handlers.AllowedOrigins(allowedOrigins)
+		methodsOptions := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+		credentialOptions := handlers.AllowCredentials()
+		headerOptions := handlers.AllowedHeaders([]string{"x-read-token"})
+		handler = handlers.CORS(originOptions, methodsOptions, credentialOptions, headerOptions)(withAuth)
 	}
-	if len(allowedOrigins) > 0 {
-		options.AllowedOrigins = allowedOrigins
-	}
-	c := cors.New(options)
+
 	server := &bootstrap.Server{
-		HttpHandler: c.Handler(withAuth),
+		HttpHandler: handler,
 	}
 
 	return server

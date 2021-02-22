@@ -56,6 +56,11 @@ func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request
 
 func (uc *authUsecase) Handler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			h.ServeHTTP(w, r)
+			return
+		}
+
 		ctx := ctx_helper.NewContext(r.Context())
 		log := cp.Log(ctx, "AuthUsecase.Middleware")
 		defer stopwatch.StartWithLogger(log).Stop()

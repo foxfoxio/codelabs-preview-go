@@ -4,7 +4,6 @@ import (
 	"context"
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/auth"
-	"log"
 )
 
 type AuthToken struct {
@@ -48,6 +47,5 @@ func verifyIDToken(ctx context.Context, app *firebase.App, idToken string) (*Aut
 		return nil, err
 	}
 
-	log.Printf("Verified ID token: %v\n", token)
 	return &AuthToken{Token: token}, nil
 }
