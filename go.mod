@@ -4,10 +4,12 @@ go 1.13
 
 require (
 	cloud.google.com/go/storage v1.10.0
+	firebase.google.com/go/v4 v4.2.0
 	github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/sessions v1.2.1
+	github.com/rs/cors v1.7.0
 	github.com/rs/xid v1.2.1
 	github.com/sirupsen/logrus v1.7.0
 	github.com/stretchr/testify v1.4.0

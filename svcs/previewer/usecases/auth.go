@@ -2,93 +2,48 @@ package usecases
 
 import (
 	"context"
-	"fmt"
+	cp "github.com/foxfoxio/codelabs-preview-go/internal"
+	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper"
+	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
 	tokenUtils "github.com/foxfoxio/codelabs-preview-go/internal/token"
+	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
+	"github.com/foxfoxio/codelabs-preview-go/internal/xfirebase"
+	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
-	"golang.org/x/oauth2"
+	"net/http"
+	"strings"
 	"time"
 )
 
 type Auth interface {
-	ProcessSession(ctx context.Context, request *requests.AuthProcessSessionRequest) (*requests.AuthProcessSessionResponse, error)
-	ProcessOauth2Callback(ctx context.Context, request *requests.AuthProcessOauth2CallbackRequest) (*requests.AuthProcessOauth2CallbackResponse, error)
+	Handler(h http.Handler) http.Handler
 	ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error)
 }
 
-func NewAuth(config *oauth2.Config) Auth {
-
+func NewAuth(firebaseClient xfirebase.Client) Auth {
 	return &authUsecase{
-		config: config,
+		firebase: firebaseClient,
 	}
 }
 
 type authUsecase struct {
-	config *oauth2.Config
-}
-
-func (uc *authUsecase) ProcessSession(ctx context.Context, request *requests.AuthProcessSessionRequest) (*requests.AuthProcessSessionResponse, error) {
-	isValid := request.UserSession != nil && request.UserSession.IsValid()
-	redirectUrl := ""
-	randState := ""
-
-	if !isValid {
-		randState = fmt.Sprintf("st%d", time.Now().UnixNano())
-		redirectUrl = uc.config.AuthCodeURL(randState)
-	}
-
-	return &requests.AuthProcessSessionResponse{
-		IsValid:     isValid,
-		State:       randState,
-		RedirectUrl: redirectUrl,
-	}, nil
-}
-
-func (uc *authUsecase) ProcessOauth2Callback(ctx context.Context, request *requests.AuthProcessOauth2CallbackRequest) (*requests.AuthProcessOauth2CallbackResponse, error) {
-	if request.UserSession.State != request.State {
-		return nil, fmt.Errorf("invalid state")
-	}
-
-	if request.Code == "" {
-		return nil, fmt.Errorf("invalid code")
-	}
-
-	fmt.Println("xxx ProcessOauth2Callback request", *request)
-
-	token, err := uc.config.Exchange(ctx, request.Code)
-	if err != nil {
-		return nil, fmt.Errorf("exchange code failed: %s", err.Error())
-	}
-
-	userId := ""
-	name := ""
-	if rawIDToken, ok := token.Extra("id_token").(string); ok {
-		jwtClaim, e := tokenUtils.ExtractJwtClaims(rawIDToken)
-		if e != nil {
-			fmt.Println("extract jwt claim failed", e.Error())
-		} else {
-			userId = jwtClaim.Email
-			name = jwtClaim.Name
-		}
-	}
-
-	encodedToken, err := tokenUtils.EncodeBase64(token)
-
-	if err != nil {
-		fmt.Println("encode token failed", err.Error())
-	}
-
-	return &requests.AuthProcessOauth2CallbackResponse{
-		Name:   name,
-		UserId: userId,
-		Token:  encodedToken,
-	}, nil
+	firebase xfirebase.Client
 }
 
 func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error) {
-	// TODO: verify token with firebase
-	claim, err := tokenUtils.ExtractJwtClaims(request.AuthorizationToken)
+	log := cp.Log(ctx, "AuthUsecase.ProcessFirebaseAuthorization")
+	defer stopwatch.StartWithLogger(log).Stop()
+	// verify token with firebase
+	_, err := uc.firebase.VerifyIDToken(ctx, request.AuthorizationToken)
 
 	if err != nil {
+		log.WithError(err).Error("token verification failed")
+		return nil, err
+	}
+
+	claim, err := tokenUtils.ExtractJwtClaims(request.AuthorizationToken)
+	if err != nil {
+		log.WithError(err).Error("extract claim failed")
 		return nil, err
 	}
 	return &requests.AuthProcessFirebaseAuthorizationResponse{
@@ -97,4 +52,40 @@ func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request
 		Email:     claim.Email,
 		ExpiresAt: claim.ExpiresAt(),
 	}, nil
+}
+
+func (uc *authUsecase) Handler(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := ctx_helper.NewContext(r.Context())
+		log := cp.Log(ctx, "AuthUsecase.Middleware")
+		defer stopwatch.StartWithLogger(log).Stop()
+		authorizationToken := strings.ReplaceAll(r.Header.Get("authorization"), "Bearer ", "")
+		if authorizationToken == "" {
+			log.Info("mission authorization token")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		authResponse, err := uc.ProcessFirebaseAuthorization(ctx, &requests.AuthProcessFirebaseAuthorizationRequest{AuthorizationToken: authorizationToken})
+		if err != nil {
+			log.WithError(err).Error("authentication failed")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		userSession := &entities.UserSession{
+			Id:        utils.NewID(),
+			Name:      authResponse.Email,
+			UserId:    authResponse.UserId,
+			Email:     authResponse.Email,
+			Token:     authorizationToken,
+			CreatedAt: time.Now(),
+		}
+
+		ctx = ctx_helper.AppendUserId(ctx, userSession.UserId)
+		ctx = ctx_helper.AppendSessionId(ctx, userSession.Id)
+		ctx = ctx_helper.AppendSession(ctx, userSession)
+
+		h.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
