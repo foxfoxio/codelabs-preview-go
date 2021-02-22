@@ -8,14 +8,6 @@ import (
 	"time"
 )
 
-func createAuthRoutes(authEp endpoints.AuthHttp) routes {
-	return routes{
-		r("/oauth2/callback", authEp.Oauth2Callback, "GET"),
-		r("/login", authEp.LoginWithToken, "GET"),
-		r("/logout", authEp.Logout, "GET"),
-	}
-}
-
 func createCodelabsRoutes(viewerEp endpoints.Viewer) routes {
 	return routes{
 		// REST model
@@ -51,14 +43,10 @@ func createDraftRoutes(viewerEp endpoints.Viewer) routes {
 	}
 }
 
-func RegisterHttpRouter(router *mux.Router, authEp endpoints.AuthHttp, viewerEp endpoints.Viewer) {
-	authRoutes := createAuthRoutes(authEp)
+func RegisterHttpRouter(router *mux.Router, viewerEp endpoints.Viewer) {
 	rootRoutes := createRootRoutes(viewerEp)
 	draftRoutes := createDraftRoutes(viewerEp)
 	codeLabsRoutes := createCodelabsRoutes(viewerEp)
-
-	authRouter := router.PathPrefix("/auth").Subrouter()
-	authRoutes.Build(authRouter)
 
 	pRouter := router.PathPrefix("/p").Subrouter()
 	rootRoutes.Build(pRouter)

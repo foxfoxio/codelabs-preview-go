@@ -1,21 +1,16 @@
 package endpoints
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
 	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper"
-	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
 	requests2 "github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints/requests"
-	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
 	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 type Viewer interface {
@@ -29,18 +24,14 @@ type Viewer interface {
 	Copy(w http.ResponseWriter, r *http.Request)
 }
 
-func NewViewer(sessionUsecase usecases.Session, viewerUsecase usecases.Viewer, authUsecase usecases.Auth) Viewer {
+func NewViewer(viewerUsecase usecases.Viewer) Viewer {
 	return &viewerEndpoint{
-		sessionUsecase: sessionUsecase,
-		viewerUsecase:  viewerUsecase,
-		authUsecase:    authUsecase,
+		viewerUsecase: viewerUsecase,
 	}
 }
 
 type viewerEndpoint struct {
-	sessionUsecase usecases.Session
-	viewerUsecase  usecases.Viewer
-	authUsecase    usecases.Auth
+	viewerUsecase usecases.Viewer
 }
 
 func (ep *viewerEndpoint) PreviewWithQuery(w http.ResponseWriter, r *http.Request) {
@@ -100,20 +91,9 @@ func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
 	log := cp.Log(ctx, "ViewerEndpoint.Draft")
-	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-	var err error
-	if !session.IsValid() {
-		ctx, err = ep.authenticate(ctx, r)
-
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, "unauthorized")
-			return
-		}
-	}
 
 	var response *apiResponse
 	defer func() {
@@ -139,18 +119,8 @@ func (ep *viewerEndpoint) Draft(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Cache-Control", "no-store")
-	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-	var err error
-	if !session.IsValid() {
-		ctx, err = ep.authenticate(ctx, r)
-
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, "unauthorized")
-			return
-		}
-	}
 
 	var response *apiResponse
 	defer func() {
@@ -286,56 +256,10 @@ func (ep *viewerEndpoint) Media(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ep *viewerEndpoint) authenticate(ctx context.Context, r *http.Request) (context.Context, error) {
-	log := cp.Log(ctx, "ViewerEndpoint.authenticate")
-	authorizationToken := ""
-	if r := r.Header.Get("authorization"); r == "" {
-		log.Error("missing authorization")
-		return ctx, errors.New("unauthorized")
-
-	} else {
-		authorizationToken = r
-	}
-
-	authResponse, err := ep.authUsecase.ProcessFirebaseAuthorization(ctx, &requests.AuthProcessFirebaseAuthorizationRequest{AuthorizationToken: authorizationToken})
-
-	if err != nil {
-		log.WithError(err).Error("firebase authorization failed ")
-		return ctx, errors.New("unauthorized")
-	}
-
-	userSession := &entities.UserSession{
-		Id:        utils.NewID(),
-		Name:      authResponse.Email,
-		UserId:    authResponse.UserId,
-		Email:     authResponse.Email,
-		Token:     authorizationToken,
-		CreatedAt: time.Now(),
-	}
-
-	ctx = ctx_helper.AppendUserId(ctx, userSession.UserId)
-	ctx = ctx_helper.AppendSessionId(ctx, userSession.Id)
-	ctx = ctx_helper.AppendSession(ctx, userSession)
-
-	return ctx, nil
-}
-
 func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
 	log := cp.Log(ctx, "ViewerEndpoint.Meta")
-
-	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
-	var err error
-	if !session.IsValid() {
-		ctx, err = ep.authenticate(ctx, r)
-
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, "unauthorized")
-			return
-		}
-	}
 
 	var response *apiResponse
 	defer func() {
@@ -391,17 +315,8 @@ func (ep *viewerEndpoint) Meta(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ep *viewerEndpoint) Copy(w http.ResponseWriter, r *http.Request) {
-	ctx, session := ep.sessionUsecase.GetContextAndSession(r)
+	ctx := r.Context()
 	var err error
-	if !session.IsValid() {
-		ctx, err = ep.authenticate(ctx, r)
-
-		if err != nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, "unauthorized")
-			return
-		}
-	}
 
 	url := r.URL.Query().Get("url")
 	name := r.URL.Query().Get("name")
