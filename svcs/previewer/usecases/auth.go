@@ -59,9 +59,26 @@ func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request
 }
 
 func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
+	getTokenFromTicketCookie := func(r *http.Request) string {
+		v, err := r.Cookie("ticket")
+
+		if err != nil || v.Value == "" {
+			return ""
+		}
+
+		return tokenUtils.Unswizzle(v.Value)
+	}
+
+	getTokenFromAuthorizationHeader := func(r *http.Request) string {
+		return strings.ReplaceAll(r.Header.Get("authorization"), "Bearer ", "")
+	}
+
 	doCheckAccessToken := func(log *logger.Logger, ctx context.Context, w http.ResponseWriter, r *http.Request) bool {
 		defer stopwatch.StartWithLogger(log).Stop()
-		authorizationToken := strings.ReplaceAll(r.Header.Get("authorization"), "Bearer ", "")
+		authorizationToken := getTokenFromAuthorizationHeader(r)
+		if authorizationToken == "" {
+			authorizationToken = getTokenFromTicketCookie(r)
+		}
 		if authorizationToken == "" {
 			log.Info("mission authorization token")
 			w.WriteHeader(http.StatusUnauthorized)
