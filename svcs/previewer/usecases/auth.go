@@ -4,6 +4,7 @@ import (
 	"context"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
 	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper"
+	"github.com/foxfoxio/codelabs-preview-go/internal/logger"
 	"github.com/foxfoxio/codelabs-preview-go/internal/stopwatch"
 	tokenUtils "github.com/foxfoxio/codelabs-preview-go/internal/token"
 	"github.com/foxfoxio/codelabs-preview-go/internal/utils"
@@ -16,18 +17,21 @@ import (
 )
 
 type Auth interface {
-	Handler(h http.Handler) http.Handler
+	AccessTokenMiddleware(next http.Handler) http.Handler
+	ApiKeyMiddleware(next http.Handler) http.Handler
 	ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error)
 }
 
-func NewAuth(firebaseClient xfirebase.Client) Auth {
+func NewAuth(firebaseClient xfirebase.Client, apiKey string) Auth {
 	return &authUsecase{
 		firebase: firebaseClient,
+		apiKey:   apiKey,
 	}
 }
 
 type authUsecase struct {
 	firebase xfirebase.Client
+	apiKey   string
 }
 
 func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request *requests.AuthProcessFirebaseAuthorizationRequest) (*requests.AuthProcessFirebaseAuthorizationResponse, error) {
@@ -54,28 +58,21 @@ func (uc *authUsecase) ProcessFirebaseAuthorization(ctx context.Context, request
 	}, nil
 }
 
-func (uc *authUsecase) Handler(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodOptions {
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		ctx := ctx_helper.NewContext(r.Context())
-		log := cp.Log(ctx, "AuthUsecase.Middleware")
+func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
+	doCheckAccessToken := func(log *logger.Logger, ctx context.Context, w http.ResponseWriter, r *http.Request) bool {
 		defer stopwatch.StartWithLogger(log).Stop()
 		authorizationToken := strings.ReplaceAll(r.Header.Get("authorization"), "Bearer ", "")
 		if authorizationToken == "" {
 			log.Info("mission authorization token")
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return false
 		}
 
 		authResponse, err := uc.ProcessFirebaseAuthorization(ctx, &requests.AuthProcessFirebaseAuthorizationRequest{AuthorizationToken: authorizationToken})
 		if err != nil {
 			log.WithError(err).Error("authentication failed")
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return false
 		}
 
 		userSession := &entities.UserSession{
@@ -90,7 +87,55 @@ func (uc *authUsecase) Handler(h http.Handler) http.Handler {
 		ctx = ctx_helper.AppendUserId(ctx, userSession.UserId)
 		ctx = ctx_helper.AppendSessionId(ctx, userSession.Id)
 		ctx = ctx_helper.AppendSession(ctx, userSession)
+		return true
+	}
 
-		h.ServeHTTP(w, r.WithContext(ctx))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := ctx_helper.NewContext(r.Context())
+		log := cp.Log(ctx, "AuthUsecase.AccessTokenMiddleware")
+
+		if !doCheckAccessToken(log, ctx, w, r) {
+			return
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func (uc *authUsecase) ApiKeyMiddleware(next http.Handler) http.Handler {
+	doCheckApiKey := func(log *logger.Logger, w http.ResponseWriter, r *http.Request) bool {
+		defer stopwatch.StartWithLogger(log).Stop()
+		apiKey := r.Header.Get("x-api-key")
+		if apiKey != uc.apiKey {
+			log.WithField("api-key", apiKey).Error("mismatch apikey")
+			w.WriteHeader(http.StatusForbidden)
+			return false
+		}
+		return true
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if uc.apiKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		ctx := ctx_helper.NewContext(r.Context())
+		log := cp.Log(ctx, "AuthUsecase.ApiKeyMiddleware")
+		if !doCheckApiKey(log, w, r) {
+			return
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

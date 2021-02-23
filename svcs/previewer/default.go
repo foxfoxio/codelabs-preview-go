@@ -24,6 +24,7 @@ func New() *bootstrap.Server {
 	storagePath := os.Getenv("CP_STORAGE_PATH")
 	allowedOriginsStr := os.Getenv("CP_ALLOWED_ORIGIN")
 	corsEnabled := os.Getenv("CP_CORS_ENABLED") == "true"
+	apiKey := os.Getenv("CP_API_KEY")
 
 	allowedOrigins := []string{"*"}
 	if x := strings.TrimSpace(allowedOriginsStr); x != "" {
@@ -55,21 +56,22 @@ func New() *bootstrap.Server {
 	gStorageClient := gstorage.NewClient(bucketName)
 	firebaseClient := xfirebase.NewDefaultClient()
 
-	authUsecase := usecases.NewAuth(firebaseClient)
+	authUsecase := usecases.NewAuth(firebaseClient, apiKey)
 	viewerUsecase := usecases.NewViewer(driveClient, gdocClient, gStorageClient, templateId, driveRootId, adminEmail, storagePath, driveTempId)
 
 	viewerEp := endpoints.NewViewer(viewerUsecase)
 	router := mux.NewRouter()
 	transports.RegisterHttpRouter(router, viewerEp)
-	withAuth := authUsecase.Handler(router)
-	handler := withAuth
+	withAuth := authUsecase.AccessTokenMiddleware(router)
+	withApiKey := authUsecase.ApiKeyMiddleware(withAuth)
+	handler := withApiKey
 
 	if corsEnabled {
 		originOptions := handlers.AllowedOrigins(allowedOrigins)
 		methodsOptions := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 		credentialOptions := handlers.AllowCredentials()
 		headerOptions := handlers.AllowedHeaders([]string{"x-read-token"})
-		handler = handlers.CORS(originOptions, methodsOptions, credentialOptions, headerOptions)(withAuth)
+		handler = handlers.CORS(originOptions, methodsOptions, credentialOptions, headerOptions)(handler)
 	}
 
 	server := &bootstrap.Server{
