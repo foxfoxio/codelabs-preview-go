@@ -13,7 +13,7 @@ func createCodelabsRoutes(viewerEp endpoints.Viewer) routes {
 		// REST model
 		r("/copy", viewerEp.Copy, "GET"),
 		r("/copy", viewerEp.Copy, "POST"),
-		r("/{fileId}", viewerEp.Publish, "POST"),
+		r("/{fileId}/", viewerEp.Publish, "POST"),
 		r("/{fileId}/", viewerEp.View, "GET"),
 		r("/{fileId}/img/{filename}", viewerEp.Media, "GET"),
 		//r("/{fileId}/meta/latest", viewerEp.Meta, "GET"),
