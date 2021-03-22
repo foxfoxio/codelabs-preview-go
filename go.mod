@@ -18,6 +18,6 @@ require (
 	google.golang.org/api v0.30.0
 )
 
-replace github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d => github.com/foxfoxio/tools/claat v0.0.0-20210118061914-d61ffa3231a3
+replace github.com/googlecodelabs/tools/claat v0.0.0-20200918190358-3cc6629c4d3d => github.com/foxfoxio/tools/claat v0.0.0-20210312093904-2473a4d26561
 
 replace gopkg.in/russross/blackfriday.v2 v2.0.1 => github.com/russross/blackfriday/v2 v2.0.1

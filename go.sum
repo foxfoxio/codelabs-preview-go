@@ -56,6 +56,8 @@ github.com/felixge/httpsnoop v1.0.1 h1:lvB5Jl89CsZtGIWuTcDM1E/vkVs49/Ml7JJe07l8S
 github.com/felixge/httpsnoop v1.0.1/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/foxfoxio/tools/claat v0.0.0-20210118061914-d61ffa3231a3 h1:u3/HQq9T9FB9ejc5K8mxxzF1tF0NhkDLmAQ3oyZxM5E=
 github.com/foxfoxio/tools/claat v0.0.0-20210118061914-d61ffa3231a3/go.mod h1:sCbpyII30xHQzSyhtju9rbTWeg7Bp9mv8Ww9Qf2lW8s=
+github.com/foxfoxio/tools/claat v0.0.0-20210312093904-2473a4d26561 h1:wAeQiZVppN/HG1df+GF0hmRLolitewCu0T0UqSMvn9U=
+github.com/foxfoxio/tools/claat v0.0.0-20210312093904-2473a4d26561/go.mod h1:sCbpyII30xHQzSyhtju9rbTWeg7Bp9mv8Ww9Qf2lW8s=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=

@@ -48,7 +48,7 @@ func ParseCodeLabWithExtractImage(fileId string, reader io.ReadCloser) (*Result,
 		Meta: &MetaEx{
 			Meta:          &codelabs.Meta,
 			TotalChapters: len(codelabs.Steps),
-			Slug:          codelabs.Meta.Extra["slug"],
+			Slug:          codelabs.Meta.Slug,
 		},
 	}
 
@@ -60,7 +60,7 @@ func ParseCodeLabWithExtractImage(fileId string, reader io.ReadCloser) (*Result,
 }
 
 func ParseCodeLab(fileId string, reader io.ReadCloser) (*Result, error) {
-	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{"slug": true}, parser.Blackfriday)
+	fetcher := fetch.NewGoogleDocMemoryFetcher(map[string]bool{}, parser.Blackfriday)
 	codelabs, err := fetcher.SlurpCodelab(reader)
 
 	if err != nil {
@@ -81,7 +81,7 @@ func ParseCodeLab(fileId string, reader io.ReadCloser) (*Result, error) {
 		Meta: &MetaEx{
 			Meta:          &codelabs.Meta,
 			TotalChapters: len(codelabs.Steps),
-			Slug:          codelabs.Meta.Extra["slug"],
+			Slug:          codelabs.Meta.Slug,
 		},
 	}
 
