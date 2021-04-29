@@ -25,6 +25,7 @@ type Client interface {
 	CopyFile(ctx context.Context, sourceFileId string, destinationName *string, parentId string) (*DriveFile, error)
 	GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GrantOwnerPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
+	GrantReadPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error)
 	GetFile(ctx context.Context, fileId string) (*DriveFileReader, error)
 	GetFileInfo(ctx context.Context, fileId string) (*DriveFile, error)
 	ExportFile(ctx context.Context, fileId string, mimeType string) (*DriveFileReader, error)
@@ -72,6 +73,16 @@ func (c *client) CopyFile(ctx context.Context, sourceFileId string, destinationN
 
 func (c *client) GrantWritePermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error) {
 	f, err := grantWritePermission(ctx, c.service, fileId, userEmail)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &DrivePermission{Id: f.Id}, nil
+}
+
+func (c *client) GrantReadPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error) {
+	f, err := grantReadPermission(ctx, c.service, fileId, userEmail)
 
 	if err != nil {
 		return nil, err

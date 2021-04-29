@@ -20,3 +20,7 @@ type HttpMetaResponse struct {
 type HttpCopyResponse struct {
 	GoogleDocPath string `json:"googleDocPath"`
 }
+
+type HttpFilePermissionResponse struct {
+	Success bool
+}

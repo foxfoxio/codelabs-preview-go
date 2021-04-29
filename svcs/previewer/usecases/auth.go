@@ -73,7 +73,7 @@ func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
 		return strings.ReplaceAll(r.Header.Get("authorization"), "Bearer ", "")
 	}
 
-	doCheckAccessToken := func(log *logger.Logger, ctx context.Context, w http.ResponseWriter, r *http.Request) bool {
+	doCheckAccessToken := func(log *logger.Logger, ctx context.Context, w http.ResponseWriter, r *http.Request) (bool, context.Context) {
 		defer stopwatch.StartWithLogger(log).Stop()
 		authorizationToken := getTokenFromAuthorizationHeader(r)
 		if authorizationToken == "" {
@@ -82,14 +82,14 @@ func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
 		if authorizationToken == "" {
 			log.Info("mission authorization token")
 			w.WriteHeader(http.StatusUnauthorized)
-			return false
+			return false, ctx
 		}
 
 		authResponse, err := uc.ProcessFirebaseAuthorization(ctx, &requests.AuthProcessFirebaseAuthorizationRequest{AuthorizationToken: authorizationToken})
 		if err != nil {
 			log.WithError(err).Error("authentication failed")
 			w.WriteHeader(http.StatusUnauthorized)
-			return false
+			return false, ctx
 		}
 
 		userSession := &entities.UserSession{
@@ -104,7 +104,7 @@ func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
 		ctx = ctx_helper.AppendUserId(ctx, userSession.UserId)
 		ctx = ctx_helper.AppendSessionId(ctx, userSession.Id)
 		ctx = ctx_helper.AppendSession(ctx, userSession)
-		return true
+		return true, ctx
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,8 +116,10 @@ func (uc *authUsecase) AccessTokenMiddleware(next http.Handler) http.Handler {
 		ctx := ctx_helper.NewContext(r.Context())
 		log := cp.Log(ctx, "AuthUsecase.AccessTokenMiddleware")
 
-		if !doCheckAccessToken(log, ctx, w, r) {
+		if ret, c := doCheckAccessToken(log, ctx, w, r); !ret {
 			return
+		} else {
+			ctx = c
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))

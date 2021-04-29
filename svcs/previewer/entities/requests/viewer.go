@@ -105,3 +105,11 @@ const (
 type ViewerDraftResponse struct {
 	FileId string
 }
+
+type FilePermissionRequest struct {
+	FileId string
+}
+
+type FilePermissionResponse struct {
+	Success bool
+}

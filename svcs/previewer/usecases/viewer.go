@@ -30,6 +30,7 @@ type Viewer interface {
 	Meta(ctx context.Context, request *requests.ViewerMetaRequest) (*requests.ViewerMetaResponse, error)
 	Media(ctx context.Context, request *requests.ViewerMediaRequest) (*requests.ViewerMediaResponse, error)
 	Copy(ctx context.Context, request *requests.CopyGoogleDocRequest) (*requests.CopyGoogleDocResponse, error)
+	PermissionRead(ctx context.Context, request *requests.FilePermissionRequest) (*requests.FilePermissionResponse, error)
 }
 
 func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string, driveTemporaryPathId string) Viewer {
@@ -411,4 +412,32 @@ func (uc *viewerUsecase) Copy(ctx context.Context, request *requests.CopyGoogleD
 	filePath := constructGoogleDocPath(kind, s.Id)
 
 	return &requests.CopyGoogleDocResponse{GoogleDocPath: filePath}, nil
+}
+
+func (uc *viewerUsecase) PermissionRead(ctx context.Context, request *requests.FilePermissionRequest) (*requests.FilePermissionResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.PermissionRead").WithField("fileId", request.FileId)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	if request.FileId == "" {
+		log.Errorf("empty file id")
+		return nil, errors.New("invalid argument")
+	}
+
+	session := getSession(ctx)
+
+	if session == nil {
+		log.Errorf("get user session failed")
+		return nil, errors.New("unauthorized")
+	}
+
+	s, err := uc.driveClient.GrantReadPermission(ctx, request.FileId, session.Email)
+
+	if err != nil {
+		log.WithError(err).Error("google drive, set read permission failed")
+		return nil, err
+	}
+
+	log.WithField("permission_id", s.Id).WithField("email", session.Email).Info("read permission set")
+
+	return &requests.FilePermissionResponse{Success: true}, nil
 }

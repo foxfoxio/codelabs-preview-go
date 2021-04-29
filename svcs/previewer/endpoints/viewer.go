@@ -22,6 +22,7 @@ type Viewer interface {
 	Media(w http.ResponseWriter, r *http.Request)
 	Meta(w http.ResponseWriter, r *http.Request)
 	Copy(w http.ResponseWriter, r *http.Request)
+	PermissionRead(w http.ResponseWriter, r *http.Request)
 }
 
 func NewViewer(viewerUsecase usecases.Viewer) Viewer {
@@ -383,4 +384,38 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		return nil, err
 	}
 	return mapData, nil
+}
+
+func (ep *viewerEndpoint) PermissionRead(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Cache-Control", "no-store")
+
+	var response *apiResponse
+	defer func() {
+		sendResponse(w, response)
+	}()
+
+	params := mux.Vars(r)
+	fileId := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	res, err := ep.viewerUsecase.PermissionRead(ctx, &requests.FilePermissionRequest{FileId: fileId})
+
+	if err != nil {
+		response = newResponse(1, err.Error(), nil)
+		return
+	}
+	response = successResponse(&requests2.HttpFilePermissionResponse{
+		Success: res.Success,
+	})
 }
