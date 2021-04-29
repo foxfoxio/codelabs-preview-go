@@ -22,6 +22,7 @@ type Viewer interface {
 	Meta(w http.ResponseWriter, r *http.Request)
 	Copy(w http.ResponseWriter, r *http.Request)
 	PermissionRead(w http.ResponseWriter, r *http.Request)
+	AdminPermissionRead(w http.ResponseWriter, r *http.Request)
 }
 
 func NewViewer(viewerUsecase usecases.Viewer) Viewer {
@@ -409,6 +410,45 @@ func (ep *viewerEndpoint) PermissionRead(w http.ResponseWriter, r *http.Request)
 	}
 
 	res, err := ep.viewerUsecase.PermissionRead(ctx, &requests.FilePermissionRequest{FileId: fileId})
+
+	if err != nil {
+		response = newResponse(1, err.Error(), nil)
+		return
+	}
+	response = successResponse(&requests2.HttpFilePermissionResponse{
+		Success: res.Success,
+	})
+}
+
+func (ep *viewerEndpoint) AdminPermissionRead(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Cache-Control", "no-store")
+
+	var response *apiResponse
+	defer func() {
+		sendResponse(w, response)
+	}()
+
+	params := mux.Vars(r)
+	fileId := ""
+	email := ""
+
+	if id, ok := params["fileId"]; ok {
+		fileId = id
+	}
+
+	if ee, ok := params["email"]; ok {
+		email = ee
+	}
+
+	if fileId == "" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "bad request")
+		return
+	}
+
+	res, err := ep.viewerUsecase.AdminPermissionRead(ctx, &requests.AdminFilePermissionRequest{FileId: fileId, Email: email})
 
 	if err != nil {
 		response = newResponse(1, err.Error(), nil)

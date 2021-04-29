@@ -31,6 +31,7 @@ type Viewer interface {
 	Media(ctx context.Context, request *requests.ViewerMediaRequest) (*requests.ViewerMediaResponse, error)
 	Copy(ctx context.Context, request *requests.CopyGoogleDocRequest) (*requests.CopyGoogleDocResponse, error)
 	PermissionRead(ctx context.Context, request *requests.FilePermissionRequest) (*requests.FilePermissionResponse, error)
+	AdminPermissionRead(ctx context.Context, request *requests.AdminFilePermissionRequest) (*requests.AdminFilePermissionResponse, error)
 }
 
 func NewViewer(driveClient gdrive.Client, gDocClient gdoc.Client, gStorageClient gstorage.Client, templateFileId string, driveRootId string, adminEmail string, storagePath string, driveTemporaryPathId string) Viewer {
@@ -440,4 +441,30 @@ func (uc *viewerUsecase) PermissionRead(ctx context.Context, request *requests.F
 	log.WithField("permission_id", s.Id).WithField("email", session.Email).Info("read permission set")
 
 	return &requests.FilePermissionResponse{Success: true}, nil
+}
+
+func (uc *viewerUsecase) AdminPermissionRead(ctx context.Context, request *requests.AdminFilePermissionRequest) (*requests.AdminFilePermissionResponse, error) {
+	log := cp.Log(ctx, "ViewerUsecase.AdminPermissionRead").WithField("fileId", request.FileId).WithField("email", request.Email)
+	defer stopwatch.StartWithLogger(log).Stop()
+
+	if request.FileId == "" {
+		log.Errorf("empty file id")
+		return nil, errors.New("invalid argument")
+	}
+
+	if request.Email == "" {
+		log.Errorf("empty email")
+		return nil, errors.New("invalid argument")
+	}
+
+	s, err := uc.driveClient.GrantReadPermission(ctx, request.FileId, request.Email)
+
+	if err != nil {
+		log.WithError(err).Error("google drive, set read permission failed")
+		return nil, err
+	}
+
+	log.WithField("permission_id", s.Id).Info("read permission set")
+
+	return &requests.AdminFilePermissionResponse{Success: true}, nil
 }

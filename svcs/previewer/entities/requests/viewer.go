@@ -113,3 +113,12 @@ type FilePermissionRequest struct {
 type FilePermissionResponse struct {
 	Success bool
 }
+
+type AdminFilePermissionRequest struct {
+	FileId string
+	Email  string
+}
+
+type AdminFilePermissionResponse struct {
+	Success bool
+}
