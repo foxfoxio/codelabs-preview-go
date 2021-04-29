@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	cp "github.com/foxfoxio/codelabs-preview-go/internal"
-	"github.com/foxfoxio/codelabs-preview-go/internal/ctx_helper"
 	requests2 "github.com/foxfoxio/codelabs-preview-go/svcs/previewer/endpoints/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/entities/requests"
 	"github.com/foxfoxio/codelabs-preview-go/svcs/previewer/usecases"
@@ -37,7 +36,7 @@ type viewerEndpoint struct {
 
 func (ep *viewerEndpoint) PreviewWithQuery(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
+	ctx := r.Context()
 
 	fileId := r.URL.Query().Get("file_id")
 	if fileId == "" {
@@ -63,7 +62,7 @@ func (ep *viewerEndpoint) PreviewWithQuery(w http.ResponseWriter, r *http.Reques
 
 func (ep *viewerEndpoint) Preview(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
+	ctx := r.Context()
 
 	params := mux.Vars(r)
 	fileId := ""
@@ -157,7 +156,7 @@ func (ep *viewerEndpoint) Publish(w http.ResponseWriter, r *http.Request) {
 
 func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
+	ctx := r.Context()
 
 	params := mux.Vars(r)
 	fileId := ""
@@ -206,7 +205,7 @@ func (ep *viewerEndpoint) View(w http.ResponseWriter, r *http.Request) {
 
 func (ep *viewerEndpoint) Media(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	ctx := ctx_helper.NewContextFromRequest(r)
+	ctx := r.Context()
 
 	params := mux.Vars(r)
 	fileId := ""
