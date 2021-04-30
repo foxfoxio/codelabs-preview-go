@@ -82,7 +82,7 @@ func (c *client) GrantWritePermission(ctx context.Context, fileId string, userEm
 }
 
 func (c *client) GrantReadPermission(ctx context.Context, fileId string, userEmail string) (*DrivePermission, error) {
-	f, err := grantReadPermission(ctx, c.service, fileId, userEmail)
+	f, err := grantReadPermission(ctx, c.service, fileId, userEmail, false)
 
 	if err != nil {
 		return nil, err

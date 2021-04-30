@@ -80,14 +80,16 @@ func grantWritePermission(ctx context.Context, service *drive.Service, fileId st
 	return perm, nil
 }
 
-func grantReadPermission(ctx context.Context, service *drive.Service, fileId string, userEmail string) (*drive.Permission, error) {
+func grantReadPermission(ctx context.Context, service *drive.Service, fileId string, userEmail string, sendNotificationEmail bool) (*drive.Permission, error) {
 	perm := &drive.Permission{
 		EmailAddress: userEmail,
 		Role:         "reader",
 		Type:         "user",
 	}
 
-	perm, err := service.Permissions.Create(fileId, perm).Context(ctx).Do()
+	perm, err := service.Permissions.Create(fileId, perm).
+		SendNotificationEmail(sendNotificationEmail).
+		Context(ctx).Do()
 
 	if err != nil {
 		log.Println("Could not share file: " + err.Error())
